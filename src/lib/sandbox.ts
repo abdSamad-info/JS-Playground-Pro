@@ -1,4 +1,4 @@
-import { File } from '../types';
+import { File } from '../types/index.ts';
 
 export const generateSandboxContent = (files: File[]) => {
   const htmlFile = files.find(f => f.language === 'html');

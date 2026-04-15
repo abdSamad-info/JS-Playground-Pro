@@ -4,8 +4,8 @@
  */
 
 import { useEffect } from 'react';
-import { MainLayout } from '@/components/Layout/MainLayout';
-import { useStore } from '@/store/useStore';
+import { MainLayout } from '@/components/Layout/MainLayout.tsx';
+import { useStore } from '@/store/useStore.ts';
 
 export default function App() {
   const { setFiles } = useStore();

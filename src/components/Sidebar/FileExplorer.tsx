@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
-import { useStore } from '@/store/useStore';
+import { useStore } from '@/store/useStore.ts';
 import { FileCode, FileJson, FileText, Search, Layers, Settings, Plus, Trash2 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils.ts';
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@/components/shadcn-ui/tooltip";
+} from "@/components/shadcn-ui/tooltip.tsx";
 import {
   Dialog,
   DialogContent,
@@ -15,18 +15,18 @@ import {
   DialogTitle,
   DialogTrigger,
   DialogFooter,
-} from "@/components/shadcn-ui/dialog";
-import { Button } from "@/components/shadcn-ui/button";
-import { Input } from "@/components/shadcn-ui/input";
+} from "@/components/shadcn-ui/dialog.tsx";
+import { Button } from "@/components/shadcn-ui/button.tsx";
+import { Input } from "@/components/shadcn-ui/input.tsx";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/shadcn-ui/select";
-import { Label } from "@/components/shadcn-ui/label";
-import { FileType } from '@/types';
+} from "@/components/shadcn-ui/select.tsx";
+import { Label } from "@/components/shadcn-ui/label.tsx";
+import { FileType } from '@/types/index.ts';
 import { toast } from 'sonner';
 
 export const FileExplorer: React.FC = () => {

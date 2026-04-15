@@ -1,6 +1,6 @@
 import React from 'react';
 import Editor from '@monaco-editor/react';
-import { useStore } from '@/store/useStore';
+import { useStore } from '@/store/useStore.ts';
 
 export const CodeEditor: React.FC = () => {
   const { files, activeFileId, updateFileContent, theme } = useStore();

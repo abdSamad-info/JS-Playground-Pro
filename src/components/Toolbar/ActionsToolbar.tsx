@@ -1,5 +1,5 @@
 import React from 'react';
-import { useStore } from '@/store/useStore';
+import { useStore } from '@/store/useStore.ts';
 import { 
   Play, 
   RotateCcw, 
@@ -20,15 +20,15 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/shadcn-ui/dropdown-menu";
-import { Button, buttonVariants } from '@/components/shadcn-ui/button';
+} from "@/components/shadcn-ui/dropdown-menu.tsx";
+import { Button, buttonVariants } from '@/components/shadcn-ui/button.tsx';
 import { 
   Tooltip, 
   TooltipContent, 
   TooltipProvider, 
   TooltipTrigger 
-} from '@/components/shadcn-ui/tooltip';
-import { cn } from '@/lib/utils';
+} from '@/components/shadcn-ui/tooltip.tsx';
+import { cn } from '@/lib/utils.ts';
 import { toast } from 'sonner';
 
 export const ActionsToolbar: React.FC = () => {

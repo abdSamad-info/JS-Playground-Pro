@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { AppState, File } from '../types';
+import { AppState, File } from '../types/index.ts';
 
 const DEFAULT_FILES: File[] = [
   {
