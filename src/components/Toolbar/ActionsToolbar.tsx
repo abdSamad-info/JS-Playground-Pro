@@ -11,7 +11,10 @@ import {
   Moon,
   Settings2,
   Save,
-  Trash2
+  Trash2,
+  ExternalLink,
+  Terminal,
+  Sparkles
 } from 'lucide-react';
 import { 
   DropdownMenu,
@@ -30,14 +33,41 @@ import {
 } from '@/components/shadcn-ui/tooltip';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { generateSandboxContent } from '@/lib/sandbox';
 
 export const ActionsToolbar: React.FC = () => {
-  const { files, activeFileId, updateFileContent, isRunning, setIsRunning, clearLogs, theme, setTheme, resetToDefault } = useStore();
+  const { 
+    files, 
+    activeFileId, 
+    updateFileContent, 
+    isRunning, 
+    setIsRunning, 
+    clearLogs, 
+    theme, 
+    setTheme, 
+    resetToDefault,
+    isConsoleVisible,
+    setConsoleVisible,
+    isAIPanelVisible,
+    setAIPanelVisible
+  } = useStore();
   const [isSaving, setIsSaving] = React.useState(false);
 
   const handleRun = () => {
     setIsRunning(true);
+    setConsoleVisible(true);
     toast.success('Code execution started');
+    
+    // If it's a web project (has HTML), maybe auto-open preview?
+    // But user said "click karna pe", so we'll leave it to the Preview button.
+  };
+
+  const handlePreview = () => {
+    const content = generateSandboxContent(files, activeFileId);
+    const blob = new Blob([content], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    window.open(url, '_blank');
+    toast.info('Opening preview in new tab');
   };
 
   const handleSave = () => {
@@ -110,8 +140,45 @@ export const ActionsToolbar: React.FC = () => {
             className="bg-[#007acc] hover:bg-[#007acc]/90 text-white h-7 px-3 gap-2 rounded text-[12px] font-medium transition-all active:scale-95"
           >
             <Play size={12} fill="currentColor" />
-            <span>Run Code</span>
+            <span>Run</span>
           </Button>
+
+          <Button 
+            onClick={handlePreview}
+            variant="ghost"
+            className="h-7 px-2 text-[#cccccc] hover:text-white hover:bg-[#454545] rounded text-[12px] gap-1.5"
+          >
+            <ExternalLink size={12} />
+            <span>Preview</span>
+          </Button>
+
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={() => setConsoleVisible(!isConsoleVisible)}
+            className={cn(
+              "h-7 px-2 text-[#cccccc] hover:text-white hover:bg-[#454545] rounded text-[12px] gap-1.5",
+              isConsoleVisible && "bg-[#454545] text-white"
+            )}
+          >
+            <Terminal size={12} />
+            <span>Console</span>
+          </Button>
+
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={() => setAIPanelVisible(!isAIPanelVisible)}
+            className={cn(
+              "h-7 px-2 text-[#cccccc] hover:text-white hover:bg-[#454545] rounded text-[12px] gap-1.5",
+              isAIPanelVisible && "bg-[#454545] text-white"
+            )}
+          >
+            <Sparkles size={12} className="text-purple-400" />
+            <span>AI Assistant</span>
+          </Button>
+
+          <div className="w-[1px] h-4 bg-[#454545] mx-1" />
 
           <Button 
             variant="ghost" 
@@ -120,7 +187,7 @@ export const ActionsToolbar: React.FC = () => {
             className="h-7 px-2 text-[#cccccc] hover:text-white hover:bg-[#454545] rounded text-[12px]"
           >
             <RotateCcw size={12} className="mr-1.5" />
-            Clear
+            Clear Logs
           </Button>
 
           <Button 

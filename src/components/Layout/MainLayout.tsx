@@ -9,6 +9,7 @@ import { FileExplorer } from '@/components/Sidebar/FileExplorer';
 import { CodeEditor } from '@/components/Editor/CodeEditor';
 import { ConsoleOutput } from '@/components/Console/ConsoleOutput';
 import { LivePreview } from '@/components/Preview/LivePreview';
+import { AIAssistant } from '@/components/Sidebar/AIAssistant';
 import { useStore } from '@/store/useStore';
 import { Toaster } from '@/components/shadcn-ui/sonner';
 import { Tabs, TabsList, TabsTrigger } from '@/components/shadcn-ui/tabs';
@@ -17,7 +18,16 @@ import { Button } from '@/components/shadcn-ui/button';
 import { cn } from '@/lib/utils';
 
 export const MainLayout: React.FC = () => {
-  const { setIsRunning, activeFileId, setActiveFileId, files } = useStore();
+  const { 
+    setIsRunning, 
+    activeFileId, 
+    setActiveFileId, 
+    files, 
+    isConsoleVisible, 
+    isAIPanelVisible,
+    setAIPanelVisible,
+    deleteFile 
+  } = useStore();
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [mobileView, setMobileView] = useState<'editor' | 'preview'>('editor');
 
@@ -80,13 +90,25 @@ export const MainLayout: React.FC = () => {
             <Tabs value={activeFileId} onValueChange={setActiveFileId} className="w-full">
               <TabsList className="bg-transparent h-[35px] p-0 gap-0 flex-nowrap">
                 {files.map(file => (
-                  <TabsTrigger 
-                    key={file.id} 
-                    value={file.id}
-                    className="data-[state=active]:bg-[#1e1e1e] data-[state=active]:text-white data-[state=active]:border-t border-[#007acc] text-[#858585] text-[12px] h-[35px] px-4 rounded-none border-r border-[#454545] transition-none whitespace-nowrap"
-                  >
-                    {file.name}
-                  </TabsTrigger>
+                  <div key={file.id} className="relative group">
+                    <TabsTrigger 
+                      value={file.id}
+                      className="data-[state=active]:bg-[#1e1e1e] data-[state=active]:text-white data-[state=active]:border-t border-[#007acc] text-[#858585] text-[12px] h-[35px] px-4 pr-8 rounded-none border-r border-[#454545] transition-none whitespace-nowrap flex items-center gap-2"
+                    >
+                      <span>{file.name}</span>
+                    </TabsTrigger>
+                    {files.length > 1 && (
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          deleteFile(file.id);
+                        }}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 hover:bg-[#454545] p-0.5 rounded text-[#858585] hover:text-white transition-all"
+                      >
+                        <X size={12} />
+                      </button>
+                    )}
+                  </div>
                 ))}
               </TabsList>
             </Tabs>
@@ -95,40 +117,42 @@ export const MainLayout: React.FC = () => {
           <div className="flex-1 flex overflow-hidden">
             {/* Desktop View */}
             <ResizablePanelGroup direction="horizontal" className="hidden sm:flex flex-1">
-              <ResizablePanel defaultSize={50} minSize={20}>
+              <ResizablePanel defaultSize={isConsoleVisible ? 60 : 100} minSize={20}>
                 <CodeEditor />
               </ResizablePanel>
               
-              <ResizableHandle className="w-[1px] bg-[#454545] hover:bg-[#007acc] transition-colors" />
-              
-              <ResizablePanel defaultSize={50} minSize={20}>
-                <ResizablePanelGroup direction="vertical">
-                  <ResizablePanel defaultSize={60} minSize={20}>
-                    <LivePreview />
-                  </ResizablePanel>
-                  
-                  <ResizableHandle className="h-[1px] bg-[#454545] hover:bg-[#007acc] transition-colors" />
-                  
+              {isConsoleVisible && (
+                <>
+                  <ResizableHandle className="w-[1px] bg-[#454545] hover:bg-[#007acc] transition-colors" />
                   <ResizablePanel defaultSize={40} minSize={20}>
                     <ConsoleOutput />
                   </ResizablePanel>
-                </ResizablePanelGroup>
-              </ResizablePanel>
+                </>
+              )}
+
+              {isAIPanelVisible && (
+                <>
+                  <ResizableHandle className="w-[1px] bg-[#454545] hover:bg-[#007acc] transition-colors" />
+                  <ResizablePanel defaultSize={30} minSize={20}>
+                    <AIAssistant />
+                  </ResizablePanel>
+                </>
+              )}
             </ResizablePanelGroup>
 
             {/* Mobile View Content */}
             <div className="sm:hidden flex-1 flex flex-col overflow-hidden">
               {mobileView === 'editor' ? (
-                <CodeEditor />
+                <>
+                  <CodeEditor />
+                  {isConsoleVisible && (
+                    <div className="h-1/3 border-t border-[#454545]">
+                      <ConsoleOutput />
+                    </div>
+                  )}
+                </>
               ) : (
-                <div className="flex-1 flex flex-col overflow-hidden">
-                  <div className="flex-1 overflow-hidden">
-                    <LivePreview />
-                  </div>
-                  <div className="h-1/3 border-t border-[#454545]">
-                    <ConsoleOutput />
-                  </div>
-                </div>
+                <LivePreview />
               )}
             </div>
           </div>
