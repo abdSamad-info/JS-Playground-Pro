@@ -20,14 +20,14 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu.tsx";
-import { Button, buttonVariants } from '@/components/ui/button.tsx';
+} from "../ui/dropdown-menu";
+import { Button, buttonVariants } from '../ui/button';
 import { 
   Tooltip, 
   TooltipContent, 
   TooltipProvider, 
   TooltipTrigger 
-} from '@/components/ui/tooltip.tsx';
+} from '../ui/tooltip';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
