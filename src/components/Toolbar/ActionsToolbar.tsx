@@ -20,14 +20,14 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Button, buttonVariants } from '@/components/ui/button';
+} from "@/components/shadcn-ui/dropdown-menu";
+import { Button, buttonVariants } from '@/components/shadcn-ui/button';
 import { 
   Tooltip, 
   TooltipContent, 
   TooltipProvider, 
   TooltipTrigger 
-} from '@/components/ui/tooltip';
+} from '@/components/shadcn-ui/tooltip';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 

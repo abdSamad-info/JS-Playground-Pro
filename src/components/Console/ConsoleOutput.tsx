@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { useStore } from '@/store/useStore';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { ScrollArea } from '@/components/shadcn-ui/scroll-area';
 import { Terminal, Trash2, Download, Filter } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Button } from '@/components/shadcn-ui/button';
 import { motion, AnimatePresence } from 'motion/react';
-import { Badge } from '@/components/ui/badge';
+import { Badge } from '@/components/shadcn-ui/badge';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 

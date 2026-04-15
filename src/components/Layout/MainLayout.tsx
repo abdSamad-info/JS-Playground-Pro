@@ -3,17 +3,17 @@ import {
   ResizableHandle, 
   ResizablePanel, 
   ResizablePanelGroup 
-} from '@/components/ui/resizable';
+} from '@/components/shadcn-ui/resizable';
 import { ActionsToolbar } from '@/components/Toolbar/ActionsToolbar';
 import { FileExplorer } from '@/components/Sidebar/FileExplorer';
 import { CodeEditor } from '@/components/Editor/CodeEditor';
 import { ConsoleOutput } from '@/components/Console/ConsoleOutput';
 import { LivePreview } from '@/components/Preview/LivePreview';
 import { useStore } from '@/store/useStore';
-import { Toaster } from '@/components/ui/sonner';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Toaster } from '@/components/shadcn-ui/sonner';
+import { Tabs, TabsList, TabsTrigger } from '@/components/shadcn-ui/tabs';
 import { Menu, X } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Button } from '@/components/shadcn-ui/button';
 import { cn } from '@/lib/utils';
 
 export const MainLayout: React.FC = () => {
