@@ -7,7 +7,7 @@ import {
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@/ui/tooltip";
+} from "@/components/ui/tooltip";
 import {
   Dialog,
   DialogContent,
@@ -15,17 +15,17 @@ import {
   DialogTitle,
   DialogTrigger,
   DialogFooter,
-} from "@/ui/dialog";
-import { Button } from "@/ui/button";
-import { Input } from "@/ui/input";
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/ui/select";
-import { Label } from "@/ui/label";
+} from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 import { FileType } from '@/types';
 import { toast } from 'sonner';
 
