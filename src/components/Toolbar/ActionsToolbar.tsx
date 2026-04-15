@@ -20,15 +20,15 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/shadcn-ui/dropdown-menu.tsx";
-import { Button, buttonVariants } from '@/components/shadcn-ui/button.tsx';
+} from "@/components/shadcn-ui/dropdown-menu";
+import { Button, buttonVariants } from '@/components/shadcn-ui/button';
 import { 
   Tooltip, 
   TooltipContent, 
   TooltipProvider, 
   TooltipTrigger 
-} from '@/components/shadcn-ui/tooltip.tsx';
-import { cn } from '@/lib/utils.ts';
+} from '@/components/shadcn-ui/tooltip';
+import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
 export const ActionsToolbar: React.FC = () => {

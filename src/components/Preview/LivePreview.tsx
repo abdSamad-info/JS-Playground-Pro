@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
-import { useStore } from '@/store/useStore.ts';
-import { generateSandboxContent } from '@/lib/sandbox.ts';
+import { useStore } from '@/store/useStore';
+import { generateSandboxContent } from '@/lib/sandbox';
 import { Loader2 } from 'lucide-react';
 
 export const LivePreview: React.FC = () => {

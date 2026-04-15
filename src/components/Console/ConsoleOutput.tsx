@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
-import { useStore } from '@/store/useStore.ts';
-import { ScrollArea } from '@/components/shadcn-ui/scroll-area.tsx';
+import { useStore } from '@/store/useStore';
+import { ScrollArea } from '@/components/shadcn-ui/scroll-area';
 import { Terminal, Trash2, Download, Filter } from 'lucide-react';
-import { Button } from '@/components/shadcn-ui/button.tsx';
+import { Button } from '@/components/shadcn-ui/button';
 import { motion, AnimatePresence } from 'motion/react';
-import { Badge } from '@/components/shadcn-ui/badge.tsx';
-import { cn } from '@/lib/utils.ts';
+import { Badge } from '@/components/shadcn-ui/badge';
+import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
 type LogFilter = 'all' | 'log' | 'error' | 'warn' | 'info';
