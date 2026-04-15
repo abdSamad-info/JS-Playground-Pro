@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { useStore } from '@/store/useStore';
-import { ScrollArea } from '@/components/ui-lib/scroll-area.tsx';
+import { ScrollArea } from '@/ui/scroll-area';
 import { Terminal, Trash2, Download, Filter } from 'lucide-react';
-import { Button } from '@/components/ui-lib/button.tsx';
+import { Button } from '@/ui/button';
 import { motion, AnimatePresence } from 'motion/react';
-import { Badge } from '@/components/ui-lib/badge.tsx';
+import { Badge } from '@/ui/badge';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 

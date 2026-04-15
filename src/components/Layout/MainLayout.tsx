@@ -3,17 +3,17 @@ import {
   ResizableHandle, 
   ResizablePanel, 
   ResizablePanelGroup 
-} from '@/components/ui-lib/resizable.tsx';
+} from '@/ui/resizable';
 import { ActionsToolbar } from '@/components/Toolbar/ActionsToolbar';
 import { FileExplorer } from '@/components/Sidebar/FileExplorer';
 import { CodeEditor } from '@/components/Editor/CodeEditor';
 import { ConsoleOutput } from '@/components/Console/ConsoleOutput';
 import { LivePreview } from '@/components/Preview/LivePreview';
 import { useStore } from '@/store/useStore';
-import { Toaster } from '@/components/ui-lib/sonner.tsx';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui-lib/tabs.tsx';
+import { Toaster } from '@/ui/sonner';
+import { Tabs, TabsList, TabsTrigger } from '@/ui/tabs';
 import { Menu, X } from 'lucide-react';
-import { Button } from '@/components/ui-lib/button.tsx';
+import { Button } from '@/ui/button';
 import { cn } from '@/lib/utils';
 
 export const MainLayout: React.FC = () => {
