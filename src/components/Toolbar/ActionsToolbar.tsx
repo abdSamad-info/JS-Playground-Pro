@@ -14,7 +14,8 @@ import {
   Trash2,
   ExternalLink,
   Terminal,
-  Sparkles
+  Sparkles,
+  MoreHorizontal
 } from 'lucide-react';
 import { 
   DropdownMenu,
@@ -250,50 +251,81 @@ export const ActionsToolbar: React.FC = () => {
 
       <div className="flex items-center gap-2">
         <div className="flex items-center gap-1 mr-2 border-r border-[#454545] pr-2">
-            <Tooltip>
-              <TooltipTrigger 
-                className={cn(buttonVariants({ variant: "ghost", size: "icon" }), "h-7 w-7 text-[#cccccc] hover:text-white hover:bg-[#454545]")}
-                onClick={handleCopy}
-              >
-                <Copy size={14} />
-              </TooltipTrigger>
-              <TooltipContent>Copy Code</TooltipContent>
-            </Tooltip>
+            <div className="hidden sm:flex items-center gap-1">
+              <Tooltip>
+                <TooltipTrigger 
+                  className={cn(buttonVariants({ variant: "ghost", size: "icon" }), "h-7 w-7 text-[#cccccc] hover:text-white hover:bg-[#454545]")}
+                  onClick={handleCopy}
+                >
+                  <Copy size={14} />
+                </TooltipTrigger>
+                <TooltipContent>Copy Code</TooltipContent>
+              </Tooltip>
 
-            <Tooltip>
-              <TooltipTrigger 
-                className={cn(buttonVariants({ variant: "ghost", size: "icon" }), "h-7 w-7 text-[#cccccc] hover:text-white hover:bg-[#454545]")}
-                onClick={handleDownload}
-              >
-                <Download size={14} />
-              </TooltipTrigger>
-              <TooltipContent>Download JS</TooltipContent>
-            </Tooltip>
+              <Tooltip>
+                <TooltipTrigger 
+                  className={cn(buttonVariants({ variant: "ghost", size: "icon" }), "h-7 w-7 text-[#cccccc] hover:text-white hover:bg-[#454545]")}
+                  onClick={handleDownload}
+                >
+                  <Download size={14} />
+                </TooltipTrigger>
+                <TooltipContent>Download JS</TooltipContent>
+              </Tooltip>
 
-            <Tooltip>
-              <TooltipTrigger 
-                className={cn(buttonVariants({ variant: "ghost", size: "icon" }), "h-7 w-7 text-[#cccccc] hover:text-white hover:bg-[#454545] relative")}
-              >
-                <Upload size={14} />
-                <input 
-                  type="file" 
-                  className="absolute inset-0 opacity-0 cursor-pointer" 
-                  onChange={handleUpload}
-                  accept=".js,.html,.css,.txt"
-                />
-              </TooltipTrigger>
-              <TooltipContent>Upload File</TooltipContent>
-            </Tooltip>
+              <Tooltip>
+                <TooltipTrigger 
+                  className={cn(buttonVariants({ variant: "ghost", size: "icon" }), "h-7 w-7 text-[#cccccc] hover:text-white hover:bg-[#454545] relative")}
+                >
+                  <Upload size={14} />
+                  <input 
+                    type="file" 
+                    className="absolute inset-0 opacity-0 cursor-pointer" 
+                    onChange={handleUpload}
+                    accept=".js,.html,.css,.txt"
+                  />
+                </TooltipTrigger>
+                <TooltipContent>Upload File</TooltipContent>
+              </Tooltip>
 
-            <Tooltip>
-              <TooltipTrigger 
-                className={cn(buttonVariants({ variant: "ghost", size: "icon" }), "h-7 w-7 text-[#cccccc] hover:text-white hover:bg-[#454545]")}
-                onClick={handleShare}
-              >
-                <Share2 size={14} />
-              </TooltipTrigger>
-              <TooltipContent>Share Snippet</TooltipContent>
-            </Tooltip>
+              <Tooltip>
+                <TooltipTrigger 
+                  className={cn(buttonVariants({ variant: "ghost", size: "icon" }), "h-7 w-7 text-[#cccccc] hover:text-white hover:bg-[#454545]")}
+                  onClick={handleShare}
+                >
+                  <Share2 size={14} />
+                </TooltipTrigger>
+                <TooltipContent>Share Snippet</TooltipContent>
+              </Tooltip>
+            </div>
+
+            <div className="sm:hidden">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-7 w-7 text-[#cccccc]">
+                    <MoreHorizontal size={14} />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="bg-[#252526] border-[#454545] text-white">
+                  <DropdownMenuItem onClick={handleCopy} className="gap-2">
+                    <Copy size={14} /> Copy Code
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleDownload} className="gap-2">
+                    <Download size={14} /> Download
+                  </DropdownMenuItem>
+                  <DropdownMenuItem className="gap-2 relative">
+                    <Upload size={14} /> Upload
+                    <input 
+                      type="file" 
+                      className="absolute inset-0 opacity-0 cursor-pointer" 
+                      onChange={handleUpload}
+                    />
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleShare} className="gap-2">
+                    <Share2 size={14} /> Share
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
         </div>
 
         <div className="flex items-center gap-1">

@@ -13,7 +13,7 @@ import { AIAssistant } from '@/components/Sidebar/AIAssistant';
 import { useStore } from '@/store/useStore';
 import { Toaster } from '@/components/shadcn-ui/sonner';
 import { Tabs, TabsList, TabsTrigger } from '@/components/shadcn-ui/tabs';
-import { Menu, X } from 'lucide-react';
+import { Menu, X, Maximize2, Minimize2 } from 'lucide-react';
 import { Button } from '@/components/shadcn-ui/button';
 import { cn } from '@/lib/utils';
 
@@ -40,6 +40,7 @@ export const MainLayout: React.FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false); // Default closed on mobile
   const [mobileView, setMobileView] = useState<'editor' | 'preview'>('editor');
   const [isLargeScreen, setIsLargeScreen] = useState(typeof window !== 'undefined' ? window.innerWidth >= 640 : true);
+  const [isConsoleFullscreen, setIsConsoleFullscreen] = useState(false);
 
   useEffect(() => {
     // Apply dynamic theme styles
@@ -143,14 +144,14 @@ export const MainLayout: React.FC = () => {
           </motion.div>
           
           <div className="flex-1 flex flex-col overflow-hidden">
-            <div className="h-[35px] bg-[#252526] border-b border-[#454545] flex items-center px-0 overflow-x-auto scrollbar-hide">
+            <div className="h-[35px] sm:h-[40px] bg-[#252526] border-b border-[#454545] flex items-center px-0 overflow-x-auto scrollbar-hide">
               <Tabs value={activeFileId} onValueChange={setActiveFileId} className="w-full">
-                <TabsList className="bg-transparent h-[35px] p-0 gap-0 flex-nowrap">
+                <TabsList className="bg-transparent h-[35px] sm:h-[40px] p-0 gap-0 flex-nowrap">
                   {files.map(file => (
                     <div key={file.id} className="relative group">
                       <TabsTrigger 
                         value={file.id}
-                        className="data-[state=active]:bg-[#1e1e1e] data-[state=active]:text-white data-[state=active]:border-t border-[#007acc] text-[#858585] text-[12px] h-[35px] px-4 pr-8 rounded-none border-r border-[#454545] transition-none whitespace-nowrap flex items-center gap-2"
+                        className="data-[state=active]:bg-[#1e1e1e] data-[state=active]:text-white data-[state=active]:border-t border-[#007acc] text-[#858585] text-[12px] h-[35px] sm:h-[40px] px-4 pr-8 rounded-none border-r border-[#454545] transition-none whitespace-nowrap flex items-center gap-2"
                       >
                         <span>{file.name}</span>
                       </TabsTrigger>
@@ -210,7 +211,7 @@ export const MainLayout: React.FC = () => {
                     <div className="flex-1 flex flex-col overflow-hidden relative">
                       <div className={cn(
                         "flex-1 transition-all duration-300",
-                        isConsoleVisible ? "h-1/2" : "h-full"
+                        isConsoleVisible ? (isConsoleFullscreen ? "h-0 opacity-0 pointer-events-none" : "h-1/2") : "h-full"
                       )}>
                         <CodeEditor />
                       </div>
@@ -219,11 +220,24 @@ export const MainLayout: React.FC = () => {
                         {isConsoleVisible && (
                           <motion.div 
                             initial={{ height: 0 }}
-                            animate={{ height: '50%' }}
+                            animate={{ height: isConsoleFullscreen ? '100%' : '50%' }}
                             exit={{ height: 0 }}
-                            className="bg-black z-30 border-t border-[#454545] overflow-hidden"
+                            className="bg-black z-30 border-t border-[#454545] overflow-hidden flex flex-col"
                           >
-                            <ConsoleOutput />
+                            <div className="h-8 bg-[#1e1e1e] border-b border-[#454545] flex items-center justify-between px-3 shrink-0">
+                              <span className="text-[10px] uppercase font-bold text-[#888]">Console</span>
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="h-6 w-6 text-[#858585]"
+                                onClick={() => setIsConsoleFullscreen(!isConsoleFullscreen)}
+                              >
+                                {isConsoleFullscreen ? <Minimize2 size={12} /> : <Maximize2 size={12} />}
+                              </Button>
+                            </div>
+                            <div className="flex-1 overflow-hidden">
+                              <ConsoleOutput />
+                            </div>
                           </motion.div>
                         )}
                       </AnimatePresence>
@@ -250,7 +264,7 @@ export const MainLayout: React.FC = () => {
           </div>
         </div>
         
-        <footer className="h-[22px] bg-[#007acc] text-white flex items-center justify-between px-3 text-[11px] shrink-0">
+        <footer className="h-[22px] bg-[#007acc] text-white hidden sm:flex items-center justify-between px-3 text-[11px] shrink-0">
           <div className="flex gap-4">
             <span className="hidden xs:inline">&otimes; 0</span>
             <span className="hidden xs:inline">&triangle; 0</span>

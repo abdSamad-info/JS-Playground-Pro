@@ -15,6 +15,7 @@ export const CodeEditor: React.FC = () => {
     lineNumbers,
     wordWrap,
     minimap,
+    themePreset,
     isSaving,
     setIsSaving
   } = useStore();
@@ -23,6 +24,69 @@ export const CodeEditor: React.FC = () => {
   const activeFile = files.find(f => f.id === activeFileId);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const savedFadeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const handleEditorWillMount = (monaco: any) => {
+    // Define Monokai Theme
+    monaco.editor.defineTheme('monokai', {
+      base: 'vs-dark',
+      inherit: true,
+      rules: [
+        { token: 'comment', foreground: '75715e' },
+        { token: 'keyword', foreground: 'f92672' },
+        { token: 'string', foreground: 'e6db74' },
+        { token: 'number', foreground: 'ae81ff' },
+      ],
+      colors: {
+        'editor.background': '#272822',
+        'editor.foreground': '#f8f8f2',
+        'editorCursor.foreground': '#f8f8f0',
+        'editor.lineHighlightBackground': '#3e3d32',
+        'editorLineNumber.foreground': '#90908a',
+        'editor.selectionBackground': '#49483e',
+      }
+    });
+
+    // Define Cobalt Theme
+    monaco.editor.defineTheme('cobalt', {
+      base: 'vs-dark',
+      inherit: true,
+      rules: [
+        { token: 'comment', foreground: '0088ff' },
+        { token: 'keyword', foreground: 'ff9d00' },
+        { token: 'string', foreground: '3ad900' },
+      ],
+      colors: {
+        'editor.background': '#002240',
+        'editor.foreground': '#ffffff',
+        'editorCursor.foreground': '#ffffff',
+        'editor.lineHighlightBackground': '#003366',
+        'editorLineNumber.foreground': '#0088ff',
+      }
+    });
+
+    // Define GitHub Light Theme
+    monaco.editor.defineTheme('github-light', {
+      base: 'vs',
+      inherit: true,
+      rules: [
+        { token: 'comment', foreground: '6a737d' },
+        { token: 'keyword', foreground: 'd73a49' },
+        { token: 'string', foreground: '032f62' },
+      ],
+      colors: {
+        'editor.background': '#ffffff',
+        'editor.foreground': '#24292e',
+        'editorCursor.foreground': '#24292e',
+        'editor.lineHighlightBackground': '#f6f8fa',
+        'editorLineNumber.foreground': '#1b1f234d',
+      }
+    });
+  };
+
+  const getMonacoTheme = () => {
+    if (themePreset === 'vs-code') return theme === 'dark' ? 'vs-dark' : 'light';
+    return themePreset;
+  };
 
   if (!activeFile) return null;
 
@@ -84,7 +148,8 @@ export const CodeEditor: React.FC = () => {
         height="100%"
         language={activeFile.language}
         value={activeFile.content}
-        theme={theme === 'dark' ? 'vs-dark' : 'light'}
+        theme={getMonacoTheme()}
+        beforeMount={handleEditorWillMount}
         onChange={handleEditorChange}
         options={{
           minimap: { enabled: minimap },
