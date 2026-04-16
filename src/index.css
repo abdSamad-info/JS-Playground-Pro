@@ -48,6 +48,37 @@
     --radius-4xl: calc(var(--radius) * 2.6);
 }
 
+/* Theme Presets */
+[data-theme-preset="vs-code"] {
+  --bg-editor: #1e1e1e;
+  --bg-sidebar: #252526;
+  --bg-header: #323233;
+  --accent-color: #007acc;
+}
+
+[data-theme-preset="monokai"] {
+  --bg-editor: #272822;
+  --bg-sidebar: #1e1f1c;
+  --bg-header: #141512;
+  --accent-color: #a6e22e;
+}
+
+[data-theme-preset="cobalt"] {
+  --bg-editor: #002240;
+  --bg-sidebar: #001b33;
+  --bg-header: #001529;
+  --accent-color: #ff9d00;
+}
+
+[data-theme-preset="github-light"] {
+  --bg-editor: #ffffff;
+  --bg-sidebar: #f6f8fa;
+  --bg-header: #24292e;
+  --accent-color: #0366d6;
+  --foreground: #24292e;
+  --border: #e1e4e8;
+}
+
 :root {
     --accent-color: #007acc;
     --editor-font-size: 14px;

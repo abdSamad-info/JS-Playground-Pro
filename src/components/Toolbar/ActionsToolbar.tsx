@@ -73,7 +73,15 @@ export const ActionsToolbar: React.FC = () => {
     fontSize,
     setFontSize,
     fontFamily,
-    setFontFamily
+    setFontFamily,
+    lineNumbers,
+    setLineNumbers,
+    wordWrap,
+    setWordWrap,
+    minimap,
+    setMinimap,
+    themePreset,
+    setThemePreset
   } = useStore();
   const [isSaving, setIsSaving] = React.useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = React.useState(false);
@@ -81,6 +89,10 @@ export const ActionsToolbar: React.FC = () => {
   const [tempAccent, setTempAccent] = React.useState(accentColor);
   const [tempFontSize, setTempFontSize] = React.useState(fontSize);
   const [tempFontFamily, setTempFontFamily] = React.useState(fontFamily);
+  const [tempLineNumbers, setTempLineNumbers] = React.useState(lineNumbers);
+  const [tempWordWrap, setTempWordWrap] = React.useState(wordWrap);
+  const [tempMinimap, setTempMinimap] = React.useState(minimap);
+  const [tempThemePreset, setTempThemePreset] = React.useState(themePreset);
 
   const handleRun = () => {
     setIsRunning(true);
@@ -358,6 +370,60 @@ export const ActionsToolbar: React.FC = () => {
                   </div>
                 </div>
 
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="grid gap-2">
+                    <Label>Line Numbers</Label>
+                    <Select value={tempLineNumbers} onValueChange={(v: 'on' | 'off') => setTempLineNumbers(v)}>
+                      <SelectTrigger className="bg-[#1e1e1e] border-[#454545]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="bg-[#252526] border-[#454545] text-white">
+                        <SelectItem value="on">On</SelectItem>
+                        <SelectItem value="off">Off</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid gap-2">
+                    <Label>Word Wrap</Label>
+                    <Select value={tempWordWrap} onValueChange={(v: 'on' | 'off') => setTempWordWrap(v)}>
+                      <SelectTrigger className="bg-[#1e1e1e] border-[#454545]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="bg-[#252526] border-[#454545] text-white">
+                        <SelectItem value="on">On</SelectItem>
+                        <SelectItem value="off">Off</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <Label>Show Minimap</Label>
+                  <Button 
+                    variant={tempMinimap ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setTempMinimap(!tempMinimap)}
+                    className={cn("h-7 px-3", tempMinimap && "bg-[#007acc]")}
+                  >
+                    {tempMinimap ? 'Enabled' : 'Disabled'}
+                  </Button>
+                </div>
+
+                <div className="grid gap-2">
+                  <Label>Theme Preset</Label>
+                  <Select value={tempThemePreset} onValueChange={(v: any) => setTempThemePreset(v)}>
+                    <SelectTrigger className="bg-[#1e1e1e] border-[#454545]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-[#252526] border-[#454545] text-white">
+                      <SelectItem value="vs-code">VS Code Dark</SelectItem>
+                      <SelectItem value="monokai">Monokai</SelectItem>
+                      <SelectItem value="cobalt">Cobalt</SelectItem>
+                      <SelectItem value="github-light">GitHub Light</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
                 <div className="grid gap-2">
                   <Label>Editor Theme</Label>
                   <div className="flex gap-2">
@@ -406,6 +472,10 @@ export const ActionsToolbar: React.FC = () => {
                     setAccentColor(tempAccent);
                     setFontSize(tempFontSize);
                     setFontFamily(tempFontFamily);
+                    setLineNumbers(tempLineNumbers);
+                    setWordWrap(tempWordWrap);
+                    setMinimap(tempMinimap);
+                    setThemePreset(tempThemePreset);
                     setIsSettingsOpen(false);
                     toast.success('Settings saved!');
                     // The user specifically asked for a message for some features

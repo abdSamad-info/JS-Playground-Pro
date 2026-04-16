@@ -30,6 +30,11 @@ export interface AppState {
   accentColor: string;
   fontSize: number;
   fontFamily: string;
+  lineNumbers: 'on' | 'off';
+  wordWrap: 'on' | 'off';
+  minimap: boolean;
+  themePreset: 'vs-code' | 'monokai' | 'cobalt' | 'github-light';
+  isSaving: boolean;
   isRunning: boolean;
   isConsoleVisible: boolean;
   isAIPanelVisible: boolean;
@@ -45,6 +50,11 @@ export interface AppState {
   setAccentColor: (color: string) => void;
   setFontSize: (size: number) => void;
   setFontFamily: (family: string) => void;
+  setLineNumbers: (status: 'on' | 'off') => void;
+  setWordWrap: (status: 'on' | 'off') => void;
+  setMinimap: (status: boolean) => void;
+  setThemePreset: (preset: 'vs-code' | 'monokai' | 'cobalt' | 'github-light') => void;
+  setIsSaving: (status: boolean) => void;
   setIsRunning: (isRunning: boolean) => void;
   setConsoleVisible: (visible: boolean) => void;
   setAIPanelVisible: (visible: boolean) => void;

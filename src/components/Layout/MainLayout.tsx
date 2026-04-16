@@ -33,7 +33,9 @@ export const MainLayout: React.FC = () => {
     deleteFile,
     accentColor,
     fontSize,
-    fontFamily
+    fontFamily,
+    themePreset,
+    setThemePreset
   } = useStore();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false); // Default closed on mobile
   const [mobileView, setMobileView] = useState<'editor' | 'preview'>('editor');
@@ -44,7 +46,8 @@ export const MainLayout: React.FC = () => {
     document.documentElement.style.setProperty('--accent-color', accentColor);
     document.documentElement.style.setProperty('--editor-font-size', `${fontSize}px`);
     document.documentElement.style.setProperty('--editor-font-family', fontFamily);
-  }, [accentColor, fontSize, fontFamily]);
+    document.documentElement.setAttribute('data-theme-preset', themePreset);
+  }, [accentColor, fontSize, fontFamily, themePreset]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -202,22 +205,29 @@ export const MainLayout: React.FC = () => {
                 </>
               ) : (
                 /* Mobile View Content */
-                <div className="flex-1 flex flex-col overflow-hidden">
+                <div className="flex-1 flex flex-col overflow-hidden relative">
                   {mobileView === 'editor' ? (
                     <div className="flex-1 flex flex-col overflow-hidden relative">
-                      <CodeEditor />
+                      <div className={cn(
+                        "flex-1 transition-all duration-300",
+                        isConsoleVisible ? "h-1/2" : "h-full"
+                      )}>
+                        <CodeEditor />
+                      </div>
+                      
                       <AnimatePresence>
                         {isConsoleVisible && (
                           <motion.div 
-                            initial={{ y: '100%' }}
-                            animate={{ y: 0 }}
-                            exit={{ y: '100%' }}
-                            className="absolute inset-x-0 bottom-0 h-1/2 bg-black z-30 border-t border-[#454545]"
+                            initial={{ height: 0 }}
+                            animate={{ height: '50%' }}
+                            exit={{ height: 0 }}
+                            className="bg-black z-30 border-t border-[#454545] overflow-hidden"
                           >
                             <ConsoleOutput />
                           </motion.div>
                         )}
                       </AnimatePresence>
+
                       <AnimatePresence>
                         {isAIPanelVisible && (
                           <motion.div 
