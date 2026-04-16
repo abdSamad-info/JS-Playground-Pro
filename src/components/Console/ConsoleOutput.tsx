@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useStore } from '@/store/useStore';
 import { ScrollArea } from '@/components/shadcn-ui/scroll-area';
-import { Terminal, Trash2, Download, Filter } from 'lucide-react';
+import { Terminal, Trash2, Download, Filter, X } from 'lucide-react';
 import { Button } from '@/components/shadcn-ui/button';
 import { motion, AnimatePresence } from 'motion/react';
 import { Badge } from '@/components/shadcn-ui/badge';
@@ -13,12 +13,17 @@ type LogFilter = 'all' | 'log' | 'error' | 'warn' | 'info';
 export const ConsoleOutput: React.FC = () => {
   const { logs, clearLogs } = useStore();
   const [filter, setFilter] = useState<LogFilter>('all');
+  const [searchQuery, setSearchQuery] = useState('');
 
   const formatTimestamp = (ts: number) => {
     return new Date(ts).toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
   };
 
-  const filteredLogs = logs.filter(log => filter === 'all' || log.type === filter);
+  const filteredLogs = logs.filter(log => {
+    const matchesFilter = filter === 'all' || log.type === filter;
+    const matchesSearch = log.content.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesFilter && matchesSearch;
+  });
 
   const handleExport = () => {
     if (logs.length === 0) {
@@ -52,13 +57,13 @@ export const ConsoleOutput: React.FC = () => {
   return (
     <div className="flex flex-col h-full bg-black text-[#eee] font-mono text-xs border-t border-[#454545]">
       <div className="flex items-center justify-between px-3 h-[35px] bg-[#252526] border-b border-[#454545] shrink-0">
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2">
+        <div className="flex items-center gap-4 flex-1">
+          <div className="flex items-center gap-2 shrink-0">
             <Terminal size={14} className="text-[#888]" />
-            <span className="font-bold text-[11px] uppercase tracking-wider text-[#888]">Console Output</span>
+            <span className="font-bold text-[10px] sm:text-[11px] uppercase tracking-wider text-[#888] whitespace-nowrap" title="Toggle Console (Ctrl+`)">Console Output</span>
           </div>
           
-          <div className="flex items-center gap-1 ml-2">
+          <div className="flex items-center gap-1 ml-2 hidden sm:flex">
             {filterOptions.map((opt) => (
               <button
                 key={opt.value}
@@ -73,6 +78,26 @@ export const ConsoleOutput: React.FC = () => {
                 {opt.label}
               </button>
             ))}
+          </div>
+
+          <div className="flex-1 max-w-[200px] ml-2">
+            <div className="relative">
+              <input 
+                type="text"
+                placeholder="Filter logs..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full bg-[#1e1e1e] border border-[#454545] rounded px-2 py-0.5 text-[10px] text-[#ccc] focus:outline-none focus:border-[#007acc] placeholder:text-[#555]"
+              />
+              {searchQuery && (
+                <button 
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[#555] hover:text-[#888]"
+                >
+                  <X size={10} />
+                </button>
+              )}
+            </div>
           </div>
         </div>
 

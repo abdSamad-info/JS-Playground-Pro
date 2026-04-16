@@ -13,7 +13,7 @@ interface Message {
 }
 
 export const AIAssistant: React.FC = () => {
-  const { files, setAIPanelVisible } = useStore();
+  const { files, setAIPanelVisible, aiPrompt, setAiPrompt } = useStore();
   const [messages, setMessages] = useState<Message[]>([
     { role: 'assistant', content: 'Hello! I am your AI coding assistant. How can I help you with your JavaScript project today?' }
   ]);
@@ -22,16 +22,23 @@ export const AIAssistant: React.FC = () => {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    if (aiPrompt) {
+      handleSend(aiPrompt);
+      setAiPrompt(null);
+    }
+  }, [aiPrompt]);
+
+  useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages]);
 
-  const handleSend = async () => {
-    if (!input.trim() || isLoading) return;
+  const handleSend = async (customPrompt?: string) => {
+    const userMessage = (customPrompt || input).trim();
+    if (!userMessage || isLoading) return;
 
-    const userMessage = input.trim();
-    setInput('');
+    if (!customPrompt) setInput('');
     setMessages(prev => [...prev, { role: 'user', content: userMessage }]);
     setIsLoading(true);
 

@@ -57,6 +57,7 @@ import {
 export const ActionsToolbar: React.FC = () => {
   const { 
     files, 
+    folders,
     activeFileId, 
     updateFileContent, 
     isRunning, 
@@ -99,9 +100,6 @@ export const ActionsToolbar: React.FC = () => {
     setIsRunning(true);
     setConsoleVisible(true);
     toast.success('Code execution started');
-    
-    // If it's a web project (has HTML), maybe auto-open preview?
-    // But user said "click karna pe", so we'll leave it to the Preview button.
   };
 
   const handlePreview = () => {
@@ -145,8 +143,16 @@ export const ActionsToolbar: React.FC = () => {
   };
 
   const handleShare = () => {
-    const state = JSON.stringify(files);
-    const encoded = btoa(state);
+    const state = {
+      files,
+      folders,
+      activeFileId,
+      themePreset,
+      accentColor,
+      fontSize,
+      fontFamily
+    };
+    const encoded = btoa(JSON.stringify(state));
     const url = `${window.location.origin}?code=${encoded}`;
     navigator.clipboard.writeText(url);
     toast.success('Share link copied to clipboard');
@@ -176,14 +182,19 @@ export const ActionsToolbar: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-2">
-          <Button 
-            onClick={handleRun} 
-            disabled={isRunning}
-            className="bg-[#007acc] hover:bg-[#007acc]/90 text-white h-7 px-3 gap-2 rounded text-[12px] font-medium transition-all active:scale-95"
-          >
-            <Play size={12} fill="currentColor" />
-            <span className="hidden xs:inline">Run</span>
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button 
+                onClick={handleRun} 
+                disabled={isRunning}
+                className="bg-[#007acc] hover:bg-[#007acc]/90 text-white h-7 px-3 gap-2 rounded text-[12px] font-medium transition-all active:scale-95"
+              >
+                <Play size={12} fill="currentColor" />
+                <span className="hidden xs:inline">Run</span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Run Code (Ctrl+Enter)</TooltipContent>
+          </Tooltip>
 
           <Button 
             onClick={handlePreview}
@@ -194,18 +205,23 @@ export const ActionsToolbar: React.FC = () => {
             <span className="hidden sm:inline">Preview</span>
           </Button>
 
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            onClick={() => setConsoleVisible(!isConsoleVisible)}
-            className={cn(
-              "h-7 px-2 text-[#cccccc] hover:text-white hover:bg-[#454545] rounded text-[12px] gap-1.5",
-              isConsoleVisible && "bg-[#454545] text-white"
-            )}
-          >
-            <Terminal size={12} />
-            <span className="hidden sm:inline">Console</span>
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => setConsoleVisible(!isConsoleVisible)}
+                className={cn(
+                  "h-7 px-2 text-[#cccccc] hover:text-white hover:bg-[#454545] rounded text-[12px] gap-1.5",
+                  isConsoleVisible && "bg-[#454545] text-white"
+                )}
+              >
+                <Terminal size={12} />
+                <span className="hidden sm:inline">Console</span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Toggle Console (Ctrl+`)</TooltipContent>
+          </Tooltip>
 
           <Button 
             variant="ghost" 
@@ -232,20 +248,26 @@ export const ActionsToolbar: React.FC = () => {
             Clear Logs
           </Button>
 
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            onClick={handleSave}
-            disabled={isSaving}
-            className="h-7 px-2 text-[#cccccc] hover:text-white hover:bg-[#454545] rounded text-[12px] gap-1.5 min-w-[70px] hidden md:flex"
-          >
-            {isSaving ? (
-              <RotateCcw size={12} className="animate-spin" />
-            ) : (
-              <Save size={12} />
-            )}
-            {isSaving ? 'Saving...' : 'Save'}
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button 
+                id="save-button"
+                variant="ghost" 
+                size="sm" 
+                onClick={handleSave}
+                disabled={isSaving}
+                className="h-7 px-2 text-[#cccccc] hover:text-white hover:bg-[#454545] rounded text-[12px] gap-1.5 min-w-[70px] hidden md:flex"
+              >
+                {isSaving ? (
+                  <RotateCcw size={12} className="animate-spin" />
+                ) : (
+                  <Save size={12} />
+                )}
+                {isSaving ? 'Saving...' : 'Save'}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Save Project (Ctrl+S)</TooltipContent>
+          </Tooltip>
         </div>
       </div>
 

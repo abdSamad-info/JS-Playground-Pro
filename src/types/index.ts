@@ -38,6 +38,7 @@ export interface AppState {
   isRunning: boolean;
   isConsoleVisible: boolean;
   isAIPanelVisible: boolean;
+  aiPrompt: string | null;
   
   // Actions
   setFiles: (files: File[]) => void;
@@ -58,11 +59,13 @@ export interface AppState {
   setIsRunning: (isRunning: boolean) => void;
   setConsoleVisible: (visible: boolean) => void;
   setAIPanelVisible: (visible: boolean) => void;
+  setAiPrompt: (prompt: string | null) => void;
   addFile: (name: string, language: FileType, parentId?: string | null) => void;
   addFolder: (name: string, parentId?: string | null) => void;
   deleteFile: (id: string) => void;
   deleteFolder: (id: string) => void;
   renameFile: (id: string, name: string) => void;
   renameFolder: (id: string, name: string) => void;
+  setSharedState: (state: Partial<AppState>) => void;
   resetToDefault: () => void;
 }

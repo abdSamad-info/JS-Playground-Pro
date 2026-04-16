@@ -85,6 +85,7 @@ export const useStore = create<AppState>()(
       isRunning: false,
       isConsoleVisible: false,
       isAIPanelVisible: false,
+      aiPrompt: null,
 
       setFiles: (files) => set({ files }),
       setFolders: (folders) => set({ folders }),
@@ -113,6 +114,7 @@ export const useStore = create<AppState>()(
       setIsRunning: (isRunning) => set({ isRunning }),
       setConsoleVisible: (isConsoleVisible) => set({ isConsoleVisible }),
       setAIPanelVisible: (isAIPanelVisible) => set({ isAIPanelVisible }),
+      setAiPrompt: (aiPrompt) => set({ aiPrompt }),
       addFile: (name, language, parentId = null) =>
         set((state) => {
           const newFile: File = {
@@ -186,6 +188,12 @@ export const useStore = create<AppState>()(
         set((state) => ({
           folders: state.folders.map(f => f.id === id ? { ...f, name } : f)
         })),
+      setSharedState: (sharedState) => set((state) => ({
+        ...state,
+        ...sharedState,
+        isRunning: false, // Reset running state when loading shared
+        logs: [], // Clear logs
+      })),
       resetToDefault: () => set({ files: DEFAULT_FILES, folders: [], activeFileId: 'index-js', logs: [], isConsoleVisible: false }),
     }),
     {

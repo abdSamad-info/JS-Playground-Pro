@@ -12,6 +12,7 @@ import { LivePreview } from '@/components/Preview/LivePreview';
 import { AIAssistant } from '@/components/Sidebar/AIAssistant';
 import { useStore } from '@/store/useStore';
 import { Toaster } from '@/components/shadcn-ui/sonner';
+import { toast } from 'sonner';
 import { Tabs, TabsList, TabsTrigger } from '@/components/shadcn-ui/tabs';
 import { Menu, X, Maximize2, Minimize2 } from 'lucide-react';
 import { Button } from '@/components/shadcn-ui/button';
@@ -37,10 +38,29 @@ export const MainLayout: React.FC = () => {
     themePreset,
     setThemePreset
   } = useStore();
+  const { setSharedState } = useStore();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false); // Default closed on mobile
   const [mobileView, setMobileView] = useState<'editor' | 'preview'>('editor');
   const [isLargeScreen, setIsLargeScreen] = useState(typeof window !== 'undefined' ? window.innerWidth >= 640 : true);
   const [isConsoleFullscreen, setIsConsoleFullscreen] = useState(false);
+
+  useEffect(() => {
+    // Check for shared code in URL
+    const params = new URLSearchParams(window.location.search);
+    const sharedCode = params.get('code');
+    if (sharedCode) {
+      try {
+        const decoded = JSON.parse(atob(sharedCode));
+        setSharedState(decoded);
+        toast.success('Shared project loaded!');
+        // Clear the URL parameter without refreshing
+        window.history.replaceState({}, document.title, window.location.pathname);
+      } catch (e) {
+        console.error('Failed to decode shared state', e);
+        toast.error('Failed to load shared project');
+      }
+    }
+  }, [setSharedState]);
 
   useEffect(() => {
     // Apply dynamic theme styles
@@ -65,9 +85,26 @@ export const MainLayout: React.FC = () => {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Run: Ctrl+Enter or Cmd+Enter
       if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
         e.preventDefault();
         setIsRunning(true);
+        useStore.getState().setConsoleVisible(true);
+      }
+      
+      // Save: Ctrl+S or Cmd+S
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault();
+        // Trigger save visual feedback
+        const saveBtn = document.getElementById('save-button');
+        if (saveBtn) saveBtn.click();
+        else toast.success('Project saved!');
+      }
+
+      // Toggle Console: Ctrl+`
+      if ((e.ctrlKey || e.metaKey) && e.key === '`') {
+        e.preventDefault();
+        useStore.getState().setConsoleVisible(!useStore.getState().isConsoleVisible);
       }
     };
 

@@ -3,6 +3,7 @@ import Editor from '@monaco-editor/react';
 import { useStore } from '@/store/useStore';
 import { Check, CloudUpload } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { toast } from 'sonner';
 
 export const CodeEditor: React.FC = () => {
   const { 
@@ -16,14 +17,40 @@ export const CodeEditor: React.FC = () => {
     wordWrap,
     minimap,
     themePreset,
+    setAiPrompt,
+    setAIPanelVisible,
     isSaving,
     setIsSaving
   } = useStore();
   
   const [showSaved, setShowSaved] = React.useState(false);
   const activeFile = files.find(f => f.id === activeFileId);
+  const editorRef = useRef<any>(null);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const savedFadeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const handleEditorDidMount = (editor: any, monaco: any) => {
+    editorRef.current = editor;
+
+    // Add custom action to context menu
+    editor.addAction({
+      id: 'explain-code-ai',
+      label: 'Explain with AI',
+      keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyE],
+      contextMenuGroupId: 'navigation',
+      contextMenuOrder: 1.5,
+      run: (ed: any) => {
+        const selection = ed.getSelection();
+        const selectedText = ed.getModel().getValueInRange(selection);
+        if (selectedText) {
+          setAiPrompt(`Please explain this code snippet:\n\n\`\`\`javascript\n${selectedText}\n\`\`\``);
+          setAIPanelVisible(true);
+        } else {
+          toast.info('Please select some code to explain');
+        }
+      }
+    });
+  };
 
   const handleEditorWillMount = (monaco: any) => {
     // Define Monokai Theme
@@ -150,6 +177,7 @@ export const CodeEditor: React.FC = () => {
         value={activeFile.content}
         theme={getMonacoTheme()}
         beforeMount={handleEditorWillMount}
+        onMount={handleEditorDidMount}
         onChange={handleEditorChange}
         options={{
           minimap: { enabled: minimap },
