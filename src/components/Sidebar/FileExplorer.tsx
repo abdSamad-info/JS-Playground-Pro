@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useStore } from '@/store/useStore.ts';
+import { motion, AnimatePresence } from 'motion/react';
 import { 
   FileCode, 
   FileJson, 
@@ -12,7 +13,8 @@ import {
   FolderPlus, 
   Folder as FolderIcon, 
   ChevronRight, 
-  ChevronDown 
+  ChevronDown,
+  Pencil
 } from 'lucide-react';
 import { cn } from '@/lib/utils.ts';
 import {
@@ -53,10 +55,15 @@ export const FileExplorer: React.FC = () => {
     deleteFile, 
     deleteFolder,
     moveFile,
-    moveFolder
+    moveFolder,
+    renameFile,
+    renameFolder
   } = useStore();
   const [isNewFileDialogOpen, setIsNewFileDialogOpen] = useState(false);
   const [isNewFolderDialogOpen, setIsNewFolderDialogOpen] = useState(false);
+  const [isRenameDialogOpen, setIsRenameDialogOpen] = useState(false);
+  const [itemToRename, setItemToRename] = useState<{ id: string; name: string; type: 'file' | 'folder' } | null>(null);
+  const [renameValue, setRenameValue] = useState('');
   const [newFileName, setNewFileName] = useState('');
   const [newFolderName, setNewFolderName] = useState('');
   const [newFileType, setNewFileType] = useState<FileType>('javascript');
@@ -64,6 +71,7 @@ export const FileExplorer: React.FC = () => {
   const [newFolderParentId, setNewFolderParentId] = useState<string>('root');
   const [isExpanded, setIsExpanded] = useState(true);
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
+  const [dragOverTarget, setDragOverTarget] = useState<string | null>(null);
 
   const toggleFolder = (id: string) => {
     const next = new Set(expandedFolders);
@@ -139,19 +147,54 @@ export const FileExplorer: React.FC = () => {
     }
   };
 
+  const handleRename = () => {
+    if (!itemToRename || !renameValue.trim()) {
+      toast.error('Name cannot be empty', { duration: 2000 });
+      return;
+    }
+
+    if (itemToRename.type === 'file') {
+      renameFile(itemToRename.id, renameValue.trim());
+    } else {
+      renameFolder(itemToRename.id, renameValue.trim());
+    }
+
+    toast.success('Renamed successfully', { duration: 2000 });
+    setIsRenameDialogOpen(false);
+    setItemToRename(null);
+    setRenameValue('');
+  };
+
+  const openRenameDialog = (e: React.MouseEvent, id: string, name: string, type: 'file' | 'folder') => {
+    e.stopPropagation();
+    setItemToRename({ id, name, type });
+    setRenameValue(name);
+    setIsRenameDialogOpen(true);
+  };
+
   const onDragStart = (e: React.DragEvent, id: string, type: 'file' | 'folder') => {
     e.dataTransfer.setData('sourceId', id);
     e.dataTransfer.setData('sourceType', type);
     e.dataTransfer.effectAllowed = 'move';
   };
 
-  const onDragOver = (e: React.DragEvent) => {
+  const onDragOver = (e: React.DragEvent, id: string | null) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
+    if (dragOverTarget !== id) {
+      setDragOverTarget(id);
+    }
+  };
+
+  const onDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    // Only clear if we actually left the boundary (some nesting issues can happen)
+    // For simplicity, we can let it be, but let's try to clear on root or similar
   };
 
   const onDrop = (e: React.DragEvent, targetId: string | null) => {
     e.preventDefault();
+    setDragOverTarget(null);
     const sourceId = e.dataTransfer.getData('sourceId');
     const sourceType = e.dataTransfer.getData('sourceType');
 
@@ -166,8 +209,12 @@ export const FileExplorer: React.FC = () => {
   };
 
   const renderFile = (file: File, depth = 0) => (
-    <div 
+    <motion.div 
       key={file.id} 
+      initial={{ opacity: 0, x: -10 }}
+      animate={{ opacity: 1, x: 0 }}
+      exit={{ opacity: 0, scale: 0.95 }}
+      layout
       className="w-full group relative"
       draggable
       onDragStart={(e) => onDragStart(e, file.id, 'file')}
@@ -194,30 +241,49 @@ export const FileExplorer: React.FC = () => {
         <TooltipContent side="right">{file.name}</TooltipContent>
       </Tooltip>
       {isExpanded && (
-        <button
-          onClick={(e) => handleDeleteFile(e, file.id, file.name)}
-          className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 text-[#858585] hover:text-red-400 p-1 transition-opacity"
-        >
-          <Trash2 size={12} />
-        </button>
+        <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center opacity-0 group-hover:opacity-100 transition-opacity bg-[#2a2d2e] rounded pl-1">
+          <button
+            onClick={(e) => openRenameDialog(e, file.id, file.name, 'file')}
+            className="text-[#858585] hover:text-[#007acc] p-1"
+            title="Rename"
+          >
+            <Pencil size={12} />
+          </button>
+          <button
+            onClick={(e) => handleDeleteFile(e, file.id, file.name)}
+            className="text-[#858585] hover:text-red-400 p-1"
+            title="Delete"
+          >
+            <Trash2 size={12} />
+          </button>
+        </div>
       )}
-    </div>
+    </motion.div>
   );
 
   const renderFolder = (folder: Folder, depth = 0) => {
     const isOpen = expandedFolders.has(folder.id);
     const folderFiles = files.filter(f => f.parentId === folder.id);
     const childFolders = folders.filter(f => f.parentId === folder.id);
+    const isDragTarget = dragOverTarget === folder.id;
 
     return (
-      <div 
+      <motion.div 
         key={folder.id} 
+        initial={{ opacity: 0, x: -10 }}
+        animate={{ opacity: 1, x: 0 }}
+        exit={{ opacity: 0, scale: 0.95 }}
+        layout
         className="w-full"
-        onDragOver={onDragOver}
+        onDragOver={(e) => onDragOver(e, folder.id)}
         onDrop={(e) => onDrop(e, folder.id)}
+        onDragLeave={() => dragOverTarget === folder.id && setDragOverTarget(null)}
       >
         <div 
-          className="w-full group relative"
+          className={cn(
+            "w-full group relative transition-colors",
+            isDragTarget && "bg-[#37373d]/50"
+          )}
           draggable
           onDragStart={(e) => onDragStart(e, folder.id, 'folder')}
         >
@@ -242,21 +308,33 @@ export const FileExplorer: React.FC = () => {
             )}
           </button>
           {isExpanded && (
-            <button
-              onClick={(e) => handleDeleteFolder(e, folder.id, folder.name)}
-              className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 text-[#858585] hover:text-red-400 p-1 transition-opacity"
-            >
-              <Trash2 size={12} />
-            </button>
+            <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center opacity-0 group-hover:opacity-100 transition-opacity bg-[#2a2d2e] rounded pl-1">
+              <button
+                onClick={(e) => openRenameDialog(e, folder.id, folder.name, 'folder')}
+                className="text-[#858585] hover:text-[#007acc] p-1"
+                title="Rename"
+              >
+                <Pencil size={12} />
+              </button>
+              <button
+                onClick={(e) => handleDeleteFolder(e, folder.id, folder.name)}
+                className="text-[#858585] hover:text-red-400 p-1"
+                title="Delete"
+              >
+                <Trash2 size={12} />
+              </button>
+            </div>
           )}
         </div>
         {isOpen && isExpanded && (
           <div className="flex flex-col">
-            {childFolders.map(cf => renderFolder(cf, depth + 1))}
-            {folderFiles.map(f => renderFile(f, depth + 1))}
+            <AnimatePresence mode="popLayout">
+              {childFolders.map(cf => renderFolder(cf, depth + 1))}
+              {folderFiles.map(f => renderFile(f, depth + 1))}
+            </AnimatePresence>
           </div>
         )}
-      </div>
+      </motion.div>
     );
   };
 
@@ -385,13 +463,48 @@ export const FileExplorer: React.FC = () => {
       </div>
 
       <div 
-        className="flex-1 overflow-y-auto overflow-x-hidden py-2"
-        onDragOver={onDragOver}
+        className={cn(
+          "flex-1 overflow-y-auto overflow-x-hidden py-2 transition-colors",
+          dragOverTarget === null && "bg-transparent",
+          dragOverTarget === 'root' && "bg-[#37373d]/20"
+        )}
+        onDragOver={(e) => onDragOver(e, 'root')}
         onDrop={(e) => onDrop(e, null)}
+        onDragLeave={() => dragOverTarget === 'root' && setDragOverTarget(null)}
       >
-        {folders.filter(f => !f.parentId).map(folder => renderFolder(folder))}
-        {files.filter(f => !f.parentId).map(file => renderFile(file))}
+        <AnimatePresence mode="popLayout">
+          {folders.filter(f => !f.parentId).map(folder => renderFolder(folder))}
+          {files.filter(f => !f.parentId).map(file => renderFile(file))}
+        </AnimatePresence>
       </div>
+
+      <Dialog open={isRenameDialogOpen} onOpenChange={setIsRenameDialogOpen}>
+        <DialogContent className="bg-[#252526] border-[#454545] text-white">
+          <DialogHeader>
+            <DialogTitle>Rename {itemToRename?.type === 'file' ? 'File' : 'Folder'}</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="rename-input">New Name</Label>
+              <Input
+                id="rename-input"
+                value={renameValue}
+                onChange={(e) => setRenameValue(e.target.value)}
+                className="bg-[#1e1e1e] border-[#454545] text-white"
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleRename();
+                }}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button onClick={handleRename} className="bg-[#007acc] hover:bg-[#007acc]/90">
+              Rename
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <div className="mt-auto border-t border-[#454545] p-2 flex justify-center">
         <Tooltip>
