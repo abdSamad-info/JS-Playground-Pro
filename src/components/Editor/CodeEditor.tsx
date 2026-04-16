@@ -1,9 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
 import Editor from '@monaco-editor/react';
 import { useStore } from '@/store/useStore';
-import { Check, CloudUpload, Type, Hash, Parentheses, Braces, Square, Equal, Dot, ChevronRight, Code2 } from 'lucide-react';
+import { Check, CloudUpload, Type, Hash, Parentheses, Braces, Square, Equal, Dot, ChevronRight, Code2, Terminal, Variable, FunctionSquare, Repeat } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 import * as prettier from 'prettier/standalone';
 import * as parserBabel from 'prettier/plugins/babel';
 import * as parserHtml from 'prettier/plugins/html';
@@ -306,17 +307,64 @@ export const CodeEditor: React.FC = () => {
   };
 
   const mobileShortcuts = [
-    { label: '=', icon: <Equal size={14} />, value: ' = ' },
-    { label: '.', icon: <Dot size={14} />, value: '.' },
-    { label: '()', icon: <Parentheses size={14} />, value: '()' },
-    { label: '{}', icon: <Braces size={14} />, value: '{}' },
-    { label: '[]', icon: <Square size={14} />, value: '[]' },
-    { label: '=>', icon: <ChevronRight size={14} />, value: ' => ' },
-    { label: ';', icon: <span className="text-xs font-bold">;</span>, value: ';' },
-    { label: '"', icon: <span className="text-xs font-bold">"</span>, value: '""' },
-    { label: '`', icon: <span className="text-xs font-bold">`</span>, value: '``' },
-    { label: 'const', icon: <Code2 size={14} />, value: 'const ' },
+    // Symbols
+    { label: '=', icon: <Equal size={14} />, value: ' = ', category: 'Symbols' },
+    { label: '.', icon: <Dot size={14} />, value: '.', category: 'Symbols' },
+    { label: '(', icon: <Parentheses size={14} />, value: '()', category: 'Symbols' },
+    { label: '{', icon: <Braces size={14} />, value: '{}', category: 'Symbols' },
+    { label: '[', icon: <Square size={14} />, value: '[]', category: 'Symbols' },
+    { label: '=>', icon: <ChevronRight size={14} />, value: ' => ', category: 'Symbols' },
+    { label: ':', icon: <span className="text-xs font-bold">:</span>, value: ': ', category: 'Symbols' },
+    { label: ';', icon: <span className="text-xs font-bold">;</span>, value: ';', category: 'Symbols' },
+    { label: '"', icon: <span className="text-xs font-bold">"</span>, value: '""', category: 'Symbols' },
+    { label: '`', icon: <span className="text-xs font-bold">`</span>, value: '``', category: 'Symbols' },
+    
+    // Keywords
+    { label: 'const', icon: <Variable size={14} />, value: 'const ', category: 'Keywords' },
+    { label: 'let', icon: <Variable size={14} />, value: 'let ', category: 'Keywords' },
+    { label: 'func', icon: <FunctionSquare size={14} />, value: 'function  () {\n  \n}', category: 'Keywords' },
+    { label: 'if', icon: <span className="text-[10px] font-bold">IF</span>, value: 'if () {\n  \n}', category: 'Keywords' },
+    { label: 'else', icon: <span className="text-[10px] font-bold">ELSE</span>, value: ' else {\n  \n}', category: 'Keywords' },
+    { label: 'for', icon: <Repeat size={14} />, value: 'for (let i = 0; i < .length; i++) {\n  \n}', category: 'Keywords' },
+    
+    // Snippets
+    { label: 'log', icon: <Terminal size={14} />, value: 'console.log();', category: 'Snippets' },
+    { label: 'async', icon: <span className="text-[10px] font-bold">ASYNC</span>, value: 'async () => {\n  \n}', category: 'Snippets' },
+    { label: 'await', icon: <span className="text-[10px] font-bold">AWAIT</span>, value: 'await ', category: 'Snippets' },
+    { label: 'map', icon: <span className="text-[10px] font-bold">MAP</span>, value: '.map(item => )', category: 'Snippets' },
   ];
+
+  const [activeCategory, setActiveCategory] = useState<string>('Symbols');
+  const categories = ['Symbols', 'Keywords', 'Snippets'];
+
+  // Dynamic suggestion logic based on cursor position
+  useEffect(() => {
+    if (!editorRef.current || !isMobile) return;
+
+    const disposable = editorRef.current.onDidChangeCursorPosition((e: any) => {
+      const model = editorRef.current.getModel();
+      if (!model) return;
+      
+      const lineContent = model.getLineContent(e.position.lineNumber);
+      const column = e.position.column;
+
+      // If at start of line or only whitespace before, suggest Keywords
+      if (lineContent.trim().length === 0 || column <= lineContent.search(/\S/) + 1) {
+        setActiveCategory('Keywords');
+      } 
+      // If we just typed a dot or are near one, suggest Snippets/Symbols
+      else if (lineContent.charAt(column - 2) === '.') {
+        setActiveCategory('Snippets');
+      }
+      else {
+        setActiveCategory('Symbols');
+      }
+    });
+
+    return () => disposable.dispose();
+  }, [isMobile]);
+
+  const filteredShortcuts = mobileShortcuts.filter(sc => sc.category === activeCategory);
 
   return (
     <div className="h-full w-full overflow-hidden flex flex-col relative">
@@ -377,16 +425,32 @@ export const CodeEditor: React.FC = () => {
 
       {/* Mobile Quick Toolbar */}
       {isMobile && (
-        <div className="h-10 bg-[#252526] border-t border-[#454545] flex items-center px-2 gap-1 overflow-x-auto no-scrollbar shrink-0">
-          {mobileShortcuts.map((sc, i) => (
-            <button
-              key={i}
-              onClick={() => insertText(sc.value)}
-              className="flex items-center justify-center min-w-[36px] h-7 bg-[#333] hover:bg-[#444] text-[#ccc] rounded text-[10px] transition-colors active:bg-[#007acc] active:text-white"
-            >
-              {sc.icon || sc.label}
-            </button>
-          ))}
+        <div className="bg-[#252526] border-t border-[#454545] shrink-0 flex flex-col">
+          <div className="flex border-b border-[#333] h-7">
+            {categories.map(cat => (
+              <button
+                key={cat}
+                onClick={() => setActiveCategory(cat)}
+                className={cn(
+                  "flex-1 text-[9px] uppercase font-bold tracking-wider transition-colors",
+                  activeCategory === cat ? "bg-[#37373d] text-[#007acc]" : "text-[#888] hover:text-[#ccc]"
+                )}
+              >
+                {cat}
+              </button>
+            ))}
+          </div>
+          <div className="h-10 flex items-center px-2 gap-1 overflow-x-auto no-scrollbar">
+            {filteredShortcuts.map((sc, i) => (
+              <button
+                key={i}
+                onClick={() => insertText(sc.value)}
+                className="flex items-center justify-center min-w-[40px] h-7 bg-[#333] hover:bg-[#444] text-[#ccc] rounded text-[10px] transition-colors active:bg-[#007acc] active:text-white px-2"
+              >
+                {sc.icon || sc.label}
+              </button>
+            ))}
+          </div>
         </div>
       )}
     </div>
