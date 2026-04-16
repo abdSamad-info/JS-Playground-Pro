@@ -87,6 +87,7 @@ export const useStore = create<AppState>()(
       isConsoleVisible: false,
       isAIPanelVisible: false,
       aiPrompt: null,
+      terminalLogs: [],
 
       setFiles: (files) => set({ files }),
       setFolders: (folders) => set({ folders }),
@@ -103,6 +104,14 @@ export const useStore = create<AppState>()(
           ],
         })),
       clearLogs: () => set({ logs: [] }),
+      addTerminalLog: (log) =>
+        set((state) => ({
+          terminalLogs: [
+            ...state.terminalLogs,
+            { ...log, timestamp: Date.now() },
+          ],
+        })),
+      clearTerminalLogs: () => set({ terminalLogs: [] }),
       setTheme: (theme) => set({ theme }),
       setAccentColor: (accentColor) => set({ accentColor }),
       setFontSize: (fontSize) => set({ fontSize }),
@@ -117,8 +126,16 @@ export const useStore = create<AppState>()(
       setConsoleVisible: (isConsoleVisible) => set({ isConsoleVisible }),
       setAIPanelVisible: (isAIPanelVisible) => set({ isAIPanelVisible }),
       setAiPrompt: (aiPrompt) => set({ aiPrompt }),
-      addFile: (name, language, parentId = null) =>
+      addFile: (name, language, parentId = null) => {
+        let success = false;
         set((state) => {
+          // Check for duplicate name in the same parent
+          const exists = state.files.some(f => f.name === name && f.parentId === parentId);
+          if (exists) {
+            success = false;
+            return state;
+          }
+
           const newFile: File = {
             id: Math.random().toString(36).substring(2, 11),
             name,
@@ -126,20 +143,55 @@ export const useStore = create<AppState>()(
             parentId,
             content: '',
           };
+          success = true;
           return {
             files: [...state.files, newFile],
             activeFileId: newFile.id,
           };
-        }),
-      addFolder: (name, parentId = null) =>
+        });
+        return success;
+      },
+      addFolder: (name, parentId = null) => {
+        let success = false;
         set((state) => {
+          // Check for duplicate folder name in the same parent
+          const exists = state.folders.some(f => f.name === name && f.parentId === parentId);
+          if (exists) {
+            success = false;
+            return state;
+          }
+
           const newFolder: Folder = {
             id: Math.random().toString(36).substring(2, 11),
             name,
             parentId,
           };
+          success = true;
           return {
             folders: [...state.folders, newFolder],
+          };
+        });
+        return success;
+      },
+      moveFile: (id, newParentId) =>
+        set((state) => ({
+          files: state.files.map((f) => (f.id === id ? { ...f, parentId: newParentId } : f)),
+        })),
+      moveFolder: (id, newParentId) =>
+        set((state) => {
+          // Prevent moving a folder into itself or its children
+          const getAllChildFolderIds = (folderId: string): string[] => {
+            const children = state.folders.filter(f => f.parentId === folderId);
+            return children.reduce((acc, child) => [...acc, child.id, ...getAllChildFolderIds(child.id)], [] as string[]);
+          };
+
+          const children = getAllChildFolderIds(id);
+          if (newParentId === id || (newParentId && children.includes(newParentId))) {
+            return state;
+          }
+
+          return {
+            folders: state.folders.map((f) => (f.id === id ? { ...f, parentId: newParentId } : f)),
           };
         }),
       deleteFile: (id) =>

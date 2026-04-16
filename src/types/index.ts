@@ -40,6 +40,7 @@ export interface AppState {
   isConsoleVisible: boolean;
   isAIPanelVisible: boolean;
   aiPrompt: string | null;
+  terminalLogs: { type: 'input' | 'output'; content: string; timestamp: number }[];
   
   // Actions
   setFiles: (files: File[]) => void;
@@ -48,6 +49,8 @@ export interface AppState {
   setActiveFileId: (id: string) => void;
   addLog: (log: Omit<LogEntry, 'id' | 'timestamp'>) => void;
   clearLogs: () => void;
+  addTerminalLog: (log: { type: 'input' | 'output'; content: string }) => void;
+  clearTerminalLogs: () => void;
   setTheme: (theme: 'light' | 'dark') => void;
   setAccentColor: (color: string) => void;
   setFontSize: (size: number) => void;
@@ -62,8 +65,10 @@ export interface AppState {
   setConsoleVisible: (visible: boolean) => void;
   setAIPanelVisible: (visible: boolean) => void;
   setAiPrompt: (prompt: string | null) => void;
-  addFile: (name: string, language: FileType, parentId?: string | null) => void;
-  addFolder: (name: string, parentId?: string | null) => void;
+  addFile: (name: string, language: FileType, parentId?: string | null) => boolean;
+  addFolder: (name: string, parentId?: string | null) => boolean;
+  moveFile: (id: string, newParentId: string | null) => void;
+  moveFolder: (id: string, newParentId: string | null) => void;
   deleteFile: (id: string) => void;
   deleteFolder: (id: string) => void;
   renameFile: (id: string, name: string) => void;

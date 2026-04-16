@@ -8,6 +8,7 @@ import { ActionsToolbar } from '@/components/Toolbar/ActionsToolbar';
 import { FileExplorer } from '@/components/Sidebar/FileExplorer';
 import { CodeEditor } from '@/components/Editor/CodeEditor';
 import { ConsoleOutput } from '@/components/Console/ConsoleOutput';
+import { SimulatedTerminal } from '@/components/Console/SimulatedTerminal';
 import { LivePreview } from '@/components/Preview/LivePreview';
 import { AIAssistant } from '@/components/Sidebar/AIAssistant';
 import { useStore } from '@/store/useStore';
@@ -43,6 +44,7 @@ export const MainLayout: React.FC = () => {
   const [mobileView, setMobileView] = useState<'editor' | 'preview'>('editor');
   const [isLargeScreen, setIsLargeScreen] = useState(typeof window !== 'undefined' ? window.innerWidth >= 640 : true);
   const [isConsoleFullscreen, setIsConsoleFullscreen] = useState(false);
+  const [bottomTab, setBottomTab] = useState<'console' | 'terminal'>('console');
 
   useEffect(() => {
     // Check for shared code in URL
@@ -221,8 +223,28 @@ export const MainLayout: React.FC = () => {
                     {isConsoleVisible && (
                       <>
                         <ResizableHandle className="w-[1px] bg-[#454545] hover:bg-[#007acc] transition-colors" />
-                        <ResizablePanel defaultSize={40} minSize={20}>
-                          <ConsoleOutput />
+                        <ResizablePanel defaultSize={40} minSize={20} className="flex flex-col">
+                          <div className="h-9 bg-[#252526] border-b border-[#454545] flex items-center px-2 shrink-0">
+                            <Tabs value={bottomTab} onValueChange={(v: any) => setBottomTab(v)} className="w-full">
+                              <TabsList className="bg-transparent h-9 p-0 gap-4">
+                                <TabsTrigger 
+                                  value="console"
+                                  className="h-9 rounded-none border-b-2 border-transparent data-[state=active]:bg-transparent data-[state=active]:border-[#007acc] data-[state=active]:text-white text-[#858585] text-[11px] uppercase font-bold tracking-wider px-2"
+                                >
+                                  Console
+                                </TabsTrigger>
+                                <TabsTrigger 
+                                  value="terminal"
+                                  className="h-9 rounded-none border-b-2 border-transparent data-[state=active]:bg-transparent data-[state=active]:border-[#007acc] data-[state=active]:text-white text-[#858585] text-[11px] uppercase font-bold tracking-wider px-2"
+                                >
+                                  Terminal
+                                </TabsTrigger>
+                              </TabsList>
+                            </Tabs>
+                          </div>
+                          <div className="flex-1 overflow-hidden">
+                            {bottomTab === 'console' ? <ConsoleOutput /> : <SimulatedTerminal />}
+                          </div>
                         </ResizablePanel>
                       </>
                     )}
@@ -266,8 +288,23 @@ export const MainLayout: React.FC = () => {
                             exit={{ height: 0 }}
                             className="bg-black z-30 border-t border-[#454545] overflow-hidden flex flex-col"
                           >
-                            <div className="h-8 bg-[#1e1e1e] border-b border-[#454545] flex items-center justify-between px-3 shrink-0">
-                              <span className="text-[10px] uppercase font-bold text-[#888]">Console</span>
+                            <div className="h-9 bg-[#1e1e1e] border-b border-[#454545] flex items-center justify-between px-2 shrink-0">
+                              <Tabs value={bottomTab} onValueChange={(v: any) => setBottomTab(v)} className="h-9">
+                                <TabsList className="bg-transparent h-9 p-0 gap-4">
+                                  <TabsTrigger 
+                                    value="console"
+                                    className="h-9 rounded-none border-b-2 border-transparent data-[state=active]:bg-transparent data-[state=active]:border-[#007acc] data-[state=active]:text-white text-[#858585] text-[10px] uppercase font-bold tracking-wider px-1"
+                                  >
+                                    Console
+                                  </TabsTrigger>
+                                  <TabsTrigger 
+                                    value="terminal"
+                                    className="h-9 rounded-none border-b-2 border-transparent data-[state=active]:bg-transparent data-[state=active]:border-[#007acc] data-[state=active]:text-white text-[#858585] text-[10px] uppercase font-bold tracking-wider px-1"
+                                  >
+                                    Terminal
+                                  </TabsTrigger>
+                                </TabsList>
+                              </Tabs>
                               <Button 
                                 variant="ghost" 
                                 size="icon" 
@@ -278,7 +315,7 @@ export const MainLayout: React.FC = () => {
                               </Button>
                             </div>
                             <div className="flex-1 overflow-hidden">
-                              <ConsoleOutput />
+                              {bottomTab === 'console' ? <ConsoleOutput /> : <SimulatedTerminal />}
                             </div>
                           </motion.div>
                         )}

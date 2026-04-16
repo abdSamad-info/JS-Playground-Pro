@@ -12,7 +12,7 @@ type LogFilter = 'all' | 'log' | 'error' | 'warn' | 'info';
 
 export const ConsoleOutput: React.FC = () => {
   const { logs, clearLogs } = useStore();
-  const [filter, setFilter] = useState<LogFilter>('all');
+  const [selectedFilters, setSelectedFilters] = useState<LogFilter[]>(['all']);
   const [searchQuery, setSearchQuery] = useState('');
 
   const formatTimestamp = (ts: number) => {
@@ -20,10 +20,24 @@ export const ConsoleOutput: React.FC = () => {
   };
 
   const filteredLogs = logs.filter(log => {
-    const matchesFilter = filter === 'all' || log.type === filter;
+    const matchesFilter = selectedFilters.includes('all') || selectedFilters.includes(log.type);
     const matchesSearch = log.content.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesFilter && matchesSearch;
   });
+
+  const toggleFilter = (f: LogFilter) => {
+    setSelectedFilters(prev => {
+      if (f === 'all') return ['all'];
+      
+      const withoutAll = prev.filter(x => x !== 'all');
+      if (withoutAll.includes(f)) {
+        const next = withoutAll.filter(x => x !== f);
+        return next.length === 0 ? ['all'] : next;
+      } else {
+        return [...withoutAll, f];
+      }
+    });
+  };
 
   const handleExport = () => {
     if (logs.length === 0) {
@@ -67,10 +81,10 @@ export const ConsoleOutput: React.FC = () => {
             {filterOptions.map((opt) => (
               <button
                 key={opt.value}
-                onClick={() => setFilter(opt.value)}
+                onClick={() => toggleFilter(opt.value)}
                 className={cn(
                   "px-2 py-0.5 rounded text-[10px] transition-colors whitespace-nowrap",
-                  filter === opt.value 
+                  selectedFilters.includes(opt.value)
                     ? "bg-[#454545] text-white" 
                     : "text-[#888] hover:text-[#ccc] hover:bg-[#333]"
                 )}

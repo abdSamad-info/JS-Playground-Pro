@@ -51,7 +51,9 @@ export const FileExplorer: React.FC = () => {
     addFile, 
     addFolder, 
     deleteFile, 
-    deleteFolder 
+    deleteFolder,
+    moveFile,
+    moveFolder
   } = useStore();
   const [isNewFileDialogOpen, setIsNewFileDialogOpen] = useState(false);
   const [isNewFolderDialogOpen, setIsNewFolderDialogOpen] = useState(false);
@@ -81,7 +83,7 @@ export const FileExplorer: React.FC = () => {
 
   const handleCreateFile = () => {
     if (!newFileName.trim()) {
-      toast.error('File name cannot be empty');
+      toast.error('File name cannot be empty', { duration: 2000 });
       return;
     }
 
@@ -90,23 +92,35 @@ export const FileExplorer: React.FC = () => {
     if (newFileType === 'html' && !fileName.endsWith('.html')) fileName += '.html';
     if (newFileType === 'css' && !fileName.endsWith('.css')) fileName += '.css';
 
-    addFile(fileName, newFileType, newFileParentId === 'root' ? null : newFileParentId);
-    setNewFileName('');
-    setNewFileParentId('root');
-    setIsNewFileDialogOpen(false);
-    toast.success(`File ${fileName} created`);
+    const parentId = newFileParentId === 'root' ? null : newFileParentId;
+    const success = addFile(fileName, newFileType, parentId);
+    
+    if (success) {
+      setNewFileName('');
+      setNewFileParentId('root');
+      setIsNewFileDialogOpen(false);
+      toast.success(`File ${fileName} created`, { duration: 2000 });
+    } else {
+      toast.error(`File ${fileName} already exists in this folder`, { duration: 2000 });
+    }
   };
 
   const handleCreateFolder = () => {
     if (!newFolderName.trim()) {
-      toast.error('Folder name cannot be empty');
+      toast.error('Folder name cannot be empty', { duration: 2000 });
       return;
     }
-    addFolder(newFolderName.trim(), newFolderParentId === 'root' ? null : newFolderParentId);
-    setNewFolderName('');
-    setNewFolderParentId('root');
-    setIsNewFolderDialogOpen(false);
-    toast.success(`Folder ${newFolderName} created`);
+    const parentId = newFolderParentId === 'root' ? null : newFolderParentId;
+    const success = addFolder(newFolderName.trim(), parentId);
+    
+    if (success) {
+      setNewFolderName('');
+      setNewFolderParentId('root');
+      setIsNewFolderDialogOpen(false);
+      toast.success(`Folder ${newFolderName} created`, { duration: 2000 });
+    } else {
+      toast.error(`Folder ${newFolderName} already exists in this folder`, { duration: 2000 });
+    }
   };
 
   const handleDeleteFile = (e: React.MouseEvent, id: string, name: string) => {
@@ -125,8 +139,39 @@ export const FileExplorer: React.FC = () => {
     }
   };
 
+  const onDragStart = (e: React.DragEvent, id: string, type: 'file' | 'folder') => {
+    e.dataTransfer.setData('sourceId', id);
+    e.dataTransfer.setData('sourceType', type);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const onDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  const onDrop = (e: React.DragEvent, targetId: string | null) => {
+    e.preventDefault();
+    const sourceId = e.dataTransfer.getData('sourceId');
+    const sourceType = e.dataTransfer.getData('sourceType');
+
+    if (sourceId === targetId) return;
+
+    if (sourceType === 'file') {
+      moveFile(sourceId, targetId);
+    } else {
+      moveFolder(sourceId, targetId);
+    }
+    toast.success('Item moved', { duration: 2000 });
+  };
+
   const renderFile = (file: File, depth = 0) => (
-    <div key={file.id} className="w-full group relative">
+    <div 
+      key={file.id} 
+      className="w-full group relative"
+      draggable
+      onDragStart={(e) => onDragStart(e, file.id, 'file')}
+    >
       <Tooltip>
         <TooltipTrigger
           onClick={() => setActiveFileId(file.id)}
@@ -165,8 +210,17 @@ export const FileExplorer: React.FC = () => {
     const childFolders = folders.filter(f => f.parentId === folder.id);
 
     return (
-      <div key={folder.id} className="w-full">
-        <div className="w-full group relative">
+      <div 
+        key={folder.id} 
+        className="w-full"
+        onDragOver={onDragOver}
+        onDrop={(e) => onDrop(e, folder.id)}
+      >
+        <div 
+          className="w-full group relative"
+          draggable
+          onDragStart={(e) => onDragStart(e, folder.id, 'folder')}
+        >
           <button
             onClick={() => toggleFolder(folder.id)}
             className={cn(
@@ -330,7 +384,11 @@ export const FileExplorer: React.FC = () => {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto overflow-x-hidden py-2">
+      <div 
+        className="flex-1 overflow-y-auto overflow-x-hidden py-2"
+        onDragOver={onDragOver}
+        onDrop={(e) => onDrop(e, null)}
+      >
         {folders.filter(f => !f.parentId).map(folder => renderFolder(folder))}
         {files.filter(f => !f.parentId).map(file => renderFile(file))}
       </div>
