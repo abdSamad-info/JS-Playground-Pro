@@ -100,8 +100,10 @@ export const FileExplorer: React.FC = () => {
 
           <Dialog open={isNewFileDialogOpen} onOpenChange={setIsNewFileDialogOpen}>
             <Tooltip>
-              <DialogTrigger render={<TooltipTrigger className="w-full flex justify-center text-[#858585] hover:text-white cursor-pointer py-1" />}>
-                <Plus size={24} strokeWidth={1.5} />
+              <DialogTrigger asChild>
+                <button className="w-full flex justify-center text-[#858585] hover:text-white cursor-pointer py-1">
+                  <Plus size={24} strokeWidth={1.5} />
+                </button>
               </DialogTrigger>
               <TooltipContent side="right">New File</TooltipContent>
             </Tooltip>

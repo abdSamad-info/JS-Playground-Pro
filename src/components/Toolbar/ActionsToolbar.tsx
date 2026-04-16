@@ -268,8 +268,10 @@ export const ActionsToolbar: React.FC = () => {
           </Button>
 
           <DropdownMenu>
-            <DropdownMenuTrigger render={<Button variant="ghost" size="icon" className="h-7 w-7 text-[#cccccc] hover:text-white hover:bg-[#454545]" />}>
-              <Settings2 size={14} />
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-7 w-7 text-[#cccccc] hover:text-white hover:bg-[#454545]">
+                <Settings2 size={14} />
+              </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent className="bg-[#252526] border-[#454545] text-white w-48">
               <DropdownMenuLabel>Project Settings</DropdownMenuLabel>

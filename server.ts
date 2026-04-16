@@ -22,7 +22,7 @@ async function startServer() {
     });
     app.use(vite.middlewares);
   } else {
-    const distPath = path.resolve(__dirname, 'dist');
+    const distPath = path.resolve(process.cwd(), 'dist');
     console.log(`[Production] Serving static files from: ${distPath}`);
     
     // Serve static files first
