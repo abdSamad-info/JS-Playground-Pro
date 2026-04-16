@@ -49,25 +49,29 @@
 }
 
 :root {
-    --background: #1e1e1e;
-    --foreground: #cccccc;
-    --card: #252526;
-    --card-foreground: #ffffff;
-    --popover: #252526;
-    --popover-foreground: #ffffff;
-    --primary: #007acc;
+    --accent-color: #007acc;
+    --editor-font-size: 14px;
+    --editor-font-family: 'JetBrains Mono', monospace;
+
+    --background: #ffffff;
+    --foreground: #1e1e1e;
+    --card: #f3f3f3;
+    --card-foreground: #1e1e1e;
+    --popover: #ffffff;
+    --popover-foreground: #1e1e1e;
+    --primary: var(--accent-color);
     --primary-foreground: #ffffff;
-    --secondary: #323233;
-    --secondary-foreground: #cccccc;
-    --muted: #2d2d2d;
-    --muted-foreground: #858585;
-    --accent: #007acc;
+    --secondary: #e1e1e1;
+    --secondary-foreground: #1e1e1e;
+    --muted: #f3f3f3;
+    --muted-foreground: #717171;
+    --accent: var(--accent-color);
     --accent-foreground: #ffffff;
-    --destructive: #f14c4c;
-    --border: #454545;
-    --input: #3c3c3c;
-    --ring: #007acc;
-    --radius: 0px;
+    --destructive: #df1b1b;
+    --border: #e1e1e1;
+    --input: #e1e1e1;
+    --ring: var(--accent-color);
+    --radius: 4px;
     
     /* Sleek Interface Variables */
     --bg-dark: #1e1e1e;
@@ -85,18 +89,18 @@
     --card-foreground: #ffffff;
     --popover: #252526;
     --popover-foreground: #ffffff;
-    --primary: #007acc;
+    --primary: var(--accent-color);
     --primary-foreground: #ffffff;
     --secondary: #323233;
     --secondary-foreground: #cccccc;
     --muted: #2d2d2d;
     --muted-foreground: #858585;
-    --accent: #007acc;
+    --accent: var(--accent-color);
     --accent-foreground: #ffffff;
     --destructive: #f14c4c;
     --border: #454545;
     --input: #3c3c3c;
-    --ring: #007acc;
+    --ring: var(--accent-color);
 }
 
 @layer base {

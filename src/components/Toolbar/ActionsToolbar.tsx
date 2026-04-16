@@ -35,6 +35,24 @@ import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { generateSandboxContent } from '@/lib/sandbox';
 
+import { 
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+} from "@/components/shadcn-ui/dialog";
+import { Input } from "@/components/shadcn-ui/input";
+import { Label } from "@/components/shadcn-ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/shadcn-ui/select";
+
 export const ActionsToolbar: React.FC = () => {
   const { 
     files, 
@@ -49,9 +67,20 @@ export const ActionsToolbar: React.FC = () => {
     isConsoleVisible,
     setConsoleVisible,
     isAIPanelVisible,
-    setAIPanelVisible
+    setAIPanelVisible,
+    accentColor,
+    setAccentColor,
+    fontSize,
+    setFontSize,
+    fontFamily,
+    setFontFamily
   } = useStore();
   const [isSaving, setIsSaving] = React.useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = React.useState(false);
+
+  const [tempAccent, setTempAccent] = React.useState(accentColor);
+  const [tempFontSize, setTempFontSize] = React.useState(fontSize);
+  const [tempFontFamily, setTempFontFamily] = React.useState(fontFamily);
 
   const handleRun = () => {
     setIsRunning(true);
@@ -209,7 +238,6 @@ export const ActionsToolbar: React.FC = () => {
 
       <div className="flex items-center gap-2">
         <div className="flex items-center gap-1 mr-2 border-r border-[#454545] pr-2">
-          <TooltipProvider>
             <Tooltip>
               <TooltipTrigger 
                 className={cn(buttonVariants({ variant: "ghost", size: "icon" }), "h-7 w-7 text-[#cccccc] hover:text-white hover:bg-[#454545]")}
@@ -254,7 +282,6 @@ export const ActionsToolbar: React.FC = () => {
               </TooltipTrigger>
               <TooltipContent>Share Snippet</TooltipContent>
             </Tooltip>
-          </TooltipProvider>
         </div>
 
         <div className="flex items-center gap-1">
@@ -267,57 +294,129 @@ export const ActionsToolbar: React.FC = () => {
             {theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />}
           </Button>
 
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
+          <Dialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
+            <DialogTrigger asChild>
               <Button variant="ghost" size="icon" className="h-7 w-7 text-[#cccccc] hover:text-white hover:bg-[#454545]">
                 <Settings2 size={14} />
               </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent className="bg-[#252526] border-[#454545] text-white w-48">
-              <DropdownMenuLabel>Project Settings</DropdownMenuLabel>
-              <DropdownMenuSeparator className="bg-[#454545]" />
-              
-              <DropdownMenuItem 
-                onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-                className="hover:bg-[#37373d] cursor-pointer"
-              >
-                {theme === 'dark' ? <Sun size={14} className="mr-2" /> : <Moon size={14} className="mr-2" />}
-                {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
-              </DropdownMenuItem>
+            </DialogTrigger>
+            <DialogContent className="bg-[#252526] border-[#454545] text-white sm:max-w-[425px]">
+              <DialogHeader>
+                <DialogTitle>Editor Settings</DialogTitle>
+              </DialogHeader>
+              <div className="grid gap-6 py-4">
+                <div className="grid gap-2">
+                  <Label>Accent Color</Label>
+                  <div className="flex gap-2 flex-wrap">
+                    {['#007acc', '#f14c4c', '#4ec9b0', '#ce9178', '#b5cea8', '#c586c0'].map(color => (
+                      <button
+                        key={color}
+                        onClick={() => setTempAccent(color)}
+                        className={cn(
+                          "w-8 h-8 rounded-full border-2 transition-all",
+                          tempAccent === color ? "border-white scale-110" : "border-transparent hover:scale-105"
+                        )}
+                        style={{ backgroundColor: color }}
+                      />
+                    ))}
+                    <input 
+                      type="color" 
+                      value={tempAccent} 
+                      onChange={(e) => setTempAccent(e.target.value)}
+                      className="w-8 h-8 rounded-full bg-transparent border-none cursor-pointer"
+                    />
+                  </div>
+                </div>
 
-              <div className="md:hidden">
-                <DropdownMenuSeparator className="bg-[#454545]" />
-                <DropdownMenuItem 
-                  onClick={handleSave}
-                  className="hover:bg-[#37373d] cursor-pointer"
-                >
-                  <Save size={14} className="mr-2" />
-                  Save Project
-                </DropdownMenuItem>
-                <DropdownMenuItem 
-                  onClick={clearLogs}
-                  className="hover:bg-[#37373d] cursor-pointer"
-                >
-                  <RotateCcw size={14} className="mr-2" />
-                  Clear Logs
-                </DropdownMenuItem>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="grid gap-2">
+                    <Label>Font Size</Label>
+                    <Select value={tempFontSize.toString()} onValueChange={(v) => setTempFontSize(parseInt(v))}>
+                      <SelectTrigger className="bg-[#1e1e1e] border-[#454545]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="bg-[#252526] border-[#454545] text-white">
+                        {[12, 14, 16, 18, 20].map(size => (
+                          <SelectItem key={size} value={size.toString()}>{size}px</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid gap-2">
+                    <Label>Font Family</Label>
+                    <Select value={tempFontFamily} onValueChange={setTempFontFamily}>
+                      <SelectTrigger className="bg-[#1e1e1e] border-[#454545]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="bg-[#252526] border-[#454545] text-white">
+                        <SelectItem value="JetBrains Mono">JetBrains Mono</SelectItem>
+                        <SelectItem value="Fira Code">Fira Code</SelectItem>
+                        <SelectItem value="Source Code Pro">Source Code Pro</SelectItem>
+                        <SelectItem value="Courier New">Courier New</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="grid gap-2">
+                  <Label>Editor Theme</Label>
+                  <div className="flex gap-2">
+                    <Button 
+                      variant={theme === 'dark' ? 'default' : 'outline'}
+                      onClick={() => setTheme('dark')}
+                      className={cn("flex-1", theme === 'dark' && "bg-[#007acc]")}
+                    >
+                      <Moon size={14} className="mr-2" /> Dark
+                    </Button>
+                    <Button 
+                      variant={theme === 'light' ? 'default' : 'outline'}
+                      onClick={() => setTheme('light')}
+                      className={cn("flex-1", theme === 'light' && "bg-[#007acc] text-white")}
+                    >
+                      <Sun size={14} className="mr-2" /> Light
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="pt-2 border-t border-[#454545]">
+                  <Button 
+                    variant="ghost" 
+                    className="w-full justify-start text-red-400 hover:text-red-300 hover:bg-red-400/10"
+                    onClick={() => {
+                      if (confirm('Reset all project files and settings?')) {
+                        resetToDefault();
+                        setIsSettingsOpen(false);
+                      }
+                    }}
+                  >
+                    <Trash2 size={14} className="mr-2" /> Reset Project
+                  </Button>
+                </div>
               </div>
-
-              <DropdownMenuSeparator className="bg-[#454545]" />
-              <DropdownMenuItem 
-                onClick={() => {
-                  if (confirm('Are you sure you want to reset the project? All your files will be replaced with defaults.')) {
-                    resetToDefault();
-                    toast.success('Project reset to default');
-                  }
-                }}
-                className="text-red-400 hover:bg-red-400/10 cursor-pointer"
-              >
-                <Trash2 size={14} className="mr-2" />
-                Reset Project
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+              <DialogFooter>
+                <Button 
+                  variant="ghost" 
+                  onClick={() => setIsSettingsOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  className="bg-[#007acc] hover:bg-[#007acc]/90"
+                  onClick={() => {
+                    setAccentColor(tempAccent);
+                    setFontSize(tempFontSize);
+                    setFontFamily(tempFontFamily);
+                    setIsSettingsOpen(false);
+                    toast.success('Settings saved!');
+                    // The user specifically asked for a message for some features
+                    toast.info('Advanced cloud sync features coming soon!');
+                  }}
+                >
+                  Save Changes
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
     </div>

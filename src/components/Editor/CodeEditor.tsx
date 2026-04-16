@@ -3,7 +3,7 @@ import Editor from '@monaco-editor/react';
 import { useStore } from '@/store/useStore';
 
 export const CodeEditor: React.FC = () => {
-  const { files, activeFileId, updateFileContent, theme } = useStore();
+  const { files, activeFileId, updateFileContent, theme, fontSize, fontFamily } = useStore();
   
   const activeFile = files.find(f => f.id === activeFileId);
 
@@ -21,12 +21,12 @@ export const CodeEditor: React.FC = () => {
         height="100%"
         language={activeFile.language}
         value={activeFile.content}
-        theme="vs-dark"
+        theme={theme === 'dark' ? 'vs-dark' : 'light'}
         onChange={handleEditorChange}
         options={{
           minimap: { enabled: false },
-          fontSize: 14,
-          fontFamily: "'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace",
+          fontSize: fontSize,
+          fontFamily: fontFamily,
           scrollBeyondLastLine: false,
           automaticLayout: true,
           padding: { top: 12 },
@@ -35,7 +35,6 @@ export const CodeEditor: React.FC = () => {
           bracketPairColorization: { enabled: true },
           formatOnPaste: true,
           formatOnType: true,
-          backgroundColor: '#1e1e1e',
         }}
       />
     </div>

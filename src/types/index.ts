@@ -27,6 +27,9 @@ export interface AppState {
   activeFileId: string;
   logs: LogEntry[];
   theme: 'light' | 'dark';
+  accentColor: string;
+  fontSize: number;
+  fontFamily: string;
   isRunning: boolean;
   isConsoleVisible: boolean;
   isAIPanelVisible: boolean;
@@ -39,6 +42,9 @@ export interface AppState {
   addLog: (log: Omit<LogEntry, 'id' | 'timestamp'>) => void;
   clearLogs: () => void;
   setTheme: (theme: 'light' | 'dark') => void;
+  setAccentColor: (color: string) => void;
+  setFontSize: (size: number) => void;
+  setFontFamily: (family: string) => void;
   setIsRunning: (isRunning: boolean) => void;
   setConsoleVisible: (visible: boolean) => void;
   setAIPanelVisible: (visible: boolean) => void;

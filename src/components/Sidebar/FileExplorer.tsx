@@ -76,7 +76,6 @@ export const FileExplorer: React.FC = () => {
       "bg-[#252526] border-r border-[#454545] flex flex-col items-center py-4 gap-6 h-full shrink-0 transition-all duration-300",
       isExpanded ? "w-48" : "w-12"
     )}>
-      <TooltipProvider>
         <div className="flex flex-col items-center gap-4 w-full">
           <Tooltip>
             <TooltipTrigger 
@@ -188,7 +187,6 @@ export const FileExplorer: React.FC = () => {
             <TooltipContent side="right">Settings</TooltipContent>
           </Tooltip>
         </div>
-      </TooltipProvider>
     </div>
   );
 };
