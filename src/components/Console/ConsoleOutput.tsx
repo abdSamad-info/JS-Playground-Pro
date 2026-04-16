@@ -63,13 +63,13 @@ export const ConsoleOutput: React.FC = () => {
             <span className="font-bold text-[10px] sm:text-[11px] uppercase tracking-wider text-[#888] whitespace-nowrap" title="Toggle Console (Ctrl+`)">Console Output</span>
           </div>
           
-          <div className="flex items-center gap-1 ml-2 hidden sm:flex">
+          <div className="flex items-center gap-1 ml-2 overflow-x-auto no-scrollbar shrink-0 max-w-[120px] sm:max-w-none">
             {filterOptions.map((opt) => (
               <button
                 key={opt.value}
                 onClick={() => setFilter(opt.value)}
                 className={cn(
-                  "px-2 py-0.5 rounded text-[10px] transition-colors",
+                  "px-2 py-0.5 rounded text-[10px] transition-colors whitespace-nowrap",
                   filter === opt.value 
                     ? "bg-[#454545] text-white" 
                     : "text-[#888] hover:text-[#ccc] hover:bg-[#333]"

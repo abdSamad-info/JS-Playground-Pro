@@ -254,23 +254,24 @@ export const CodeEditor: React.FC = () => {
 
   const handleEditorChange = (value: string | undefined) => {
     if (value !== undefined) {
-      updateFileContent(activeFileId, value);
-      
-      // Auto-save indicator logic
+      // Auto-save indicator logic (visual only at first)
       setIsSaving(true);
       setShowSaved(false);
+      
       if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
       if (savedFadeTimeoutRef.current) clearTimeout(savedFadeTimeoutRef.current);
       
+      // Debounce the actual state update (The "Save Interval")
       saveTimeoutRef.current = setTimeout(() => {
+        updateFileContent(activeFileId, value);
         setIsSaving(false);
         setShowSaved(true);
         savedFadeTimeoutRef.current = setTimeout(() => {
           setShowSaved(false);
         }, 2000);
-      }, 1000);
+      }, 800); // 800ms debounce for saving
 
-      // Auto-format logic (after delay while typing)
+      // Auto-format logic (after longer delay while typing)
       if (autoFormat) {
         if (formatTimeoutRef.current) clearTimeout(formatTimeoutRef.current);
         formatTimeoutRef.current = setTimeout(() => {

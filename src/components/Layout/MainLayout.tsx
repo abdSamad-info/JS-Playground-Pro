@@ -244,7 +244,12 @@ export const MainLayout: React.FC = () => {
               ) : (
                 /* Mobile View Content */
                 <div className="flex-1 flex flex-col overflow-hidden relative">
-                  {mobileView === 'editor' ? (
+                  {/* Always render LivePreview to capture logs, but hide it when in editor mode */}
+                  <div className={cn("flex-1", mobileView !== 'preview' && "hidden")}>
+                    <LivePreview />
+                  </div>
+
+                  {mobileView === 'editor' && (
                     <div className="flex-1 flex flex-col overflow-hidden relative">
                       <div className={cn(
                         "flex-1 transition-all duration-300",
@@ -292,8 +297,6 @@ export const MainLayout: React.FC = () => {
                         )}
                       </AnimatePresence>
                     </div>
-                  ) : (
-                    <LivePreview />
                   )}
                 </div>
               )}
