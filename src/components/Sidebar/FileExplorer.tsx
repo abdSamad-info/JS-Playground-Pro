@@ -211,10 +211,9 @@ export const FileExplorer: React.FC = () => {
   const renderFile = (file: File, depth = 0) => (
     <motion.div 
       key={file.id} 
-      initial={{ opacity: 0, x: -10 }}
-      animate={{ opacity: 1, x: 0 }}
-      exit={{ opacity: 0, scale: 0.95 }}
-      layout
+      initial={{ opacity: 0, y: 5 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0 }}
       className="w-full group relative"
       draggable
       onDragStart={(e) => onDragStart(e, file.id, 'file')}
@@ -270,10 +269,9 @@ export const FileExplorer: React.FC = () => {
     return (
       <motion.div 
         key={folder.id} 
-        initial={{ opacity: 0, x: -10 }}
-        animate={{ opacity: 1, x: 0 }}
-        exit={{ opacity: 0, scale: 0.95 }}
-        layout
+        initial={{ opacity: 0, y: 5 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0 }}
         className="w-full"
         onDragOver={(e) => onDragOver(e, folder.id)}
         onDrop={(e) => onDrop(e, folder.id)}
@@ -328,7 +326,7 @@ export const FileExplorer: React.FC = () => {
         </div>
         {isOpen && isExpanded && (
           <div className="flex flex-col">
-            <AnimatePresence mode="popLayout">
+            <AnimatePresence>
               {childFolders.map(cf => renderFolder(cf, depth + 1))}
               {folderFiles.map(f => renderFile(f, depth + 1))}
             </AnimatePresence>
@@ -472,7 +470,7 @@ export const FileExplorer: React.FC = () => {
         onDrop={(e) => onDrop(e, null)}
         onDragLeave={() => dragOverTarget === 'root' && setDragOverTarget(null)}
       >
-        <AnimatePresence mode="popLayout">
+        <AnimatePresence>
           {folders.filter(f => !f.parentId).map(folder => renderFolder(folder))}
           {files.filter(f => !f.parentId).map(file => renderFile(file))}
         </AnimatePresence>

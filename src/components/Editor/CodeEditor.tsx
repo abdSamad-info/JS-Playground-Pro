@@ -32,6 +32,7 @@ export const CodeEditor: React.FC = () => {
   
   const [showSaved, setShowSaved] = React.useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [activeCategory, setActiveCategory] = useState<string>('Symbols');
   const activeFile = files.find(f => f.id === activeFileId);
   const editorRef = useRef<any>(null);
   const monacoRef = useRef<any>(null);
@@ -92,6 +93,25 @@ export const CodeEditor: React.FC = () => {
   const handleEditorDidMount = (editor: any, monaco: any) => {
     editorRef.current = editor;
     monacoRef.current = monaco;
+
+    // Mobile suggestions listener
+    editor.onDidChangeCursorPosition((e: any) => {
+      const model = editor.getModel();
+      if (!model) return;
+      
+      const lineContent = model.getLineContent(e.position.lineNumber);
+      const column = e.position.column;
+
+      // Suggest based on context
+      if (lineContent.trim().length === 0 || column <= lineContent.search(/\S/) + 1) {
+        setActiveCategory('Keywords');
+      } else if (lineContent.charAt(column - 2) === '.') {
+        setActiveCategory('Snippets');
+      } else if (column > 1) {
+        // Only switch back to symbols if we're not currently in a category that makes sense
+        // This avoids flickering while typing
+      }
+    });
 
     // Add custom action to context menu
     editor.addAction({
@@ -334,35 +354,7 @@ export const CodeEditor: React.FC = () => {
     { label: 'map', icon: <span className="text-[10px] font-bold">MAP</span>, value: '.map(item => )', category: 'Snippets' },
   ];
 
-  const [activeCategory, setActiveCategory] = useState<string>('Symbols');
   const categories = ['Symbols', 'Keywords', 'Snippets'];
-
-  // Dynamic suggestion logic based on cursor position
-  useEffect(() => {
-    if (!editorRef.current || !isMobile) return;
-
-    const disposable = editorRef.current.onDidChangeCursorPosition((e: any) => {
-      const model = editorRef.current.getModel();
-      if (!model) return;
-      
-      const lineContent = model.getLineContent(e.position.lineNumber);
-      const column = e.position.column;
-
-      // If at start of line or only whitespace before, suggest Keywords
-      if (lineContent.trim().length === 0 || column <= lineContent.search(/\S/) + 1) {
-        setActiveCategory('Keywords');
-      } 
-      // If we just typed a dot or are near one, suggest Snippets/Symbols
-      else if (lineContent.charAt(column - 2) === '.') {
-        setActiveCategory('Snippets');
-      }
-      else {
-        setActiveCategory('Symbols');
-      }
-    });
-
-    return () => disposable.dispose();
-  }, [isMobile]);
 
   const filteredShortcuts = mobileShortcuts.filter(sc => sc.category === activeCategory);
 

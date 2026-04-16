@@ -1,8 +1,8 @@
 import { File } from '../types/index';
 
 export const generateSandboxContent = (files: File[]) => {
-  const htmlFile = files.find(f => f.language === 'html' || f.name === 'index.html');
-  const cssFile = files.find(f => f.language === 'css' || f.name === 'styles.css');
+  const htmlFile = files.find(f => f.name === 'index.html') || files.find(f => f.language === 'html');
+  const cssFile = files.find(f => f.name === 'styles.css') || files.find(f => f.language === 'css');
   const jsFile = files.find(f => f.name === 'index.js') || files.find(f => f.language === 'javascript');
 
   const html = htmlFile?.content || '';
