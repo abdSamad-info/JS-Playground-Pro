@@ -171,29 +171,35 @@ export const MainLayout: React.FC = () => {
             <div className="flex-1 flex overflow-hidden">
               {/* Desktop View */}
               {isLargeScreen ? (
-                <ResizablePanelGroup direction="horizontal" className="flex-1">
-                  <ResizablePanel defaultSize={isConsoleVisible ? 60 : 100} minSize={20}>
-                    <CodeEditor />
-                  </ResizablePanel>
-                  
-                  {isConsoleVisible && (
-                    <>
-                      <ResizableHandle className="w-[1px] bg-[#454545] hover:bg-[#007acc] transition-colors" />
-                      <ResizablePanel defaultSize={40} minSize={20}>
-                        <ConsoleOutput />
-                      </ResizablePanel>
-                    </>
-                  )}
+                <>
+                  <ResizablePanelGroup direction="horizontal" className="flex-1">
+                    <ResizablePanel defaultSize={isConsoleVisible ? 60 : 100} minSize={20}>
+                      <CodeEditor />
+                    </ResizablePanel>
+                    
+                    {isConsoleVisible && (
+                      <>
+                        <ResizableHandle className="w-[1px] bg-[#454545] hover:bg-[#007acc] transition-colors" />
+                        <ResizablePanel defaultSize={40} minSize={20}>
+                          <ConsoleOutput />
+                        </ResizablePanel>
+                      </>
+                    )}
 
-                  {isAIPanelVisible && (
-                    <>
-                      <ResizableHandle className="w-[1px] bg-[#454545] hover:bg-[#007acc] transition-colors" />
-                      <ResizablePanel defaultSize={30} minSize={20}>
-                        <AIAssistant />
-                      </ResizablePanel>
-                    </>
-                  )}
-                </ResizablePanelGroup>
+                    {isAIPanelVisible && (
+                      <>
+                        <ResizableHandle className="w-[1px] bg-[#454545] hover:bg-[#007acc] transition-colors" />
+                        <ResizablePanel defaultSize={30} minSize={20}>
+                          <AIAssistant />
+                        </ResizablePanel>
+                      </>
+                    )}
+                  </ResizablePanelGroup>
+                  {/* Hidden runner for desktop to handle code execution and console logs */}
+                  <div className="hidden">
+                    <LivePreview />
+                  </div>
+                </>
               ) : (
                 /* Mobile View Content */
                 <div className="flex-1 flex flex-col overflow-hidden">

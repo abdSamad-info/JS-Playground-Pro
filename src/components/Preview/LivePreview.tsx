@@ -20,18 +20,29 @@ export const LivePreview: React.FC = () => {
 
   useEffect(() => {
     if (isRunning && iframeRef.current) {
+      // Clear logs before running if needed? 
+      // User might want to see previous logs, so we don't clear by default.
+      
       const content = generateSandboxContent(files);
       const iframe = iframeRef.current;
       
-      // Reset iframe content
-      iframe.srcdoc = content;
+      // Force a reload by clearing srcdoc first or using a unique URL if needed
+      // but srcdoc update should be enough for most cases.
+      iframe.srcdoc = '';
       
-      // Simulate loading
-      const timer = setTimeout(() => {
-        setIsRunning(false);
-      }, 500);
+      // Small delay to ensure the iframe is cleared
+      const reloadTimer = setTimeout(() => {
+        iframe.srcdoc = content;
+        
+        // Reset isRunning after a short delay to allow the next run
+        const resetTimer = setTimeout(() => {
+          setIsRunning(false);
+        }, 100);
+        
+        return () => clearTimeout(resetTimer);
+      }, 10);
 
-      return () => clearTimeout(timer);
+      return () => clearTimeout(reloadTimer);
     }
   }, [isRunning, files, setIsRunning]);
 
