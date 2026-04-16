@@ -83,7 +83,9 @@ export const ActionsToolbar: React.FC = () => {
     minimap,
     setMinimap,
     themePreset,
-    setThemePreset
+    setThemePreset,
+    autoFormat,
+    setAutoFormat
   } = useStore();
   const [isSaving, setIsSaving] = React.useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = React.useState(false);
@@ -95,6 +97,7 @@ export const ActionsToolbar: React.FC = () => {
   const [tempWordWrap, setTempWordWrap] = React.useState(wordWrap);
   const [tempMinimap, setTempMinimap] = React.useState(minimap);
   const [tempThemePreset, setTempThemePreset] = React.useState(themePreset);
+  const [tempAutoFormat, setTempAutoFormat] = React.useState(autoFormat);
 
   const handleRun = () => {
     setIsRunning(true);
@@ -150,7 +153,8 @@ export const ActionsToolbar: React.FC = () => {
       themePreset,
       accentColor,
       fontSize,
-      fontFamily
+      fontFamily,
+      autoFormat
     };
     const encoded = btoa(JSON.stringify(state));
     const url = `${window.location.origin}?code=${encoded}`;
@@ -474,8 +478,26 @@ export const ActionsToolbar: React.FC = () => {
                       <SelectItem value="monokai">Monokai</SelectItem>
                       <SelectItem value="cobalt">Cobalt</SelectItem>
                       <SelectItem value="github-light">GitHub Light</SelectItem>
+                      <SelectItem value="dracula">Dracula</SelectItem>
+                      <SelectItem value="solarized-dark">Solarized Dark</SelectItem>
+                      <SelectItem value="material">Material Theme</SelectItem>
                     </SelectContent>
                   </Select>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div className="grid gap-0.5">
+                    <Label>Auto Format</Label>
+                    <p className="text-[10px] text-[#888]">Format code on blur or delay</p>
+                  </div>
+                  <Button 
+                    variant={tempAutoFormat ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setTempAutoFormat(!tempAutoFormat)}
+                    className={cn("h-7 px-3", tempAutoFormat && "bg-[#007acc]")}
+                  >
+                    {tempAutoFormat ? 'Enabled' : 'Disabled'}
+                  </Button>
                 </div>
 
                 <div className="grid gap-2">
@@ -530,6 +552,7 @@ export const ActionsToolbar: React.FC = () => {
                     setWordWrap(tempWordWrap);
                     setMinimap(tempMinimap);
                     setThemePreset(tempThemePreset);
+                    setAutoFormat(tempAutoFormat);
                     setIsSettingsOpen(false);
                     toast.success('Settings saved!');
                     // The user specifically asked for a message for some features

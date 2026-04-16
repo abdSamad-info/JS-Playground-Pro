@@ -1,9 +1,14 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import Editor from '@monaco-editor/react';
 import { useStore } from '@/store/useStore';
-import { Check, CloudUpload } from 'lucide-react';
+import { Check, CloudUpload, Type, Hash, Parentheses, Braces, Square, Equal, Dot, ChevronRight, Code2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { toast } from 'sonner';
+import * as prettier from 'prettier/standalone';
+import * as parserBabel from 'prettier/plugins/babel';
+import * as parserHtml from 'prettier/plugins/html';
+import * as parserPostcss from 'prettier/plugins/postcss';
+import * as parserEstree from 'prettier/plugins/estree';
 
 export const CodeEditor: React.FC = () => {
   const { 
@@ -17,6 +22,7 @@ export const CodeEditor: React.FC = () => {
     wordWrap,
     minimap,
     themePreset,
+    autoFormat,
     setAiPrompt,
     setAIPanelVisible,
     isSaving,
@@ -24,13 +30,67 @@ export const CodeEditor: React.FC = () => {
   } = useStore();
   
   const [showSaved, setShowSaved] = React.useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const activeFile = files.find(f => f.id === activeFileId);
   const editorRef = useRef<any>(null);
+  const monacoRef = useRef<any>(null);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const savedFadeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const formatTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  const formatCode = async (content: string, language: string) => {
+    try {
+      let parser = 'babel';
+      let plugins: any[] = [parserBabel, parserEstree];
+
+      if (language === 'html') {
+        parser = 'html';
+        plugins = [parserHtml];
+      } else if (language === 'css') {
+        parser = 'css';
+        plugins = [parserPostcss];
+      } else if (language === 'json') {
+        parser = 'json';
+        plugins = [parserBabel, parserEstree];
+      }
+
+      const formatted = await prettier.format(content, {
+        parser,
+        plugins,
+        semi: true,
+        singleQuote: true,
+        tabWidth: 2,
+        printWidth: 80,
+      });
+
+      return formatted;
+    } catch (error) {
+      console.error('Formatting error:', error);
+      return content;
+    }
+  };
+
+  const handleFormat = async () => {
+    if (!activeFile || !editorRef.current) return;
+    const content = editorRef.current.getValue();
+    const formatted = await formatCode(content, activeFile.language);
+    if (formatted !== content) {
+      updateFileContent(activeFileId, formatted);
+    }
+  };
 
   const handleEditorDidMount = (editor: any, monaco: any) => {
     editorRef.current = editor;
+    monacoRef.current = monaco;
 
     // Add custom action to context menu
     editor.addAction({
@@ -50,9 +110,27 @@ export const CodeEditor: React.FC = () => {
         }
       }
     });
+
+    // Add format action
+    editor.addAction({
+      id: 'format-code',
+      label: 'Format Document',
+      keybindings: [monaco.KeyMod.Shift | monaco.KeyMod.Alt | monaco.KeyCode.KeyF],
+      contextMenuGroupId: 'navigation',
+      contextMenuOrder: 1.1,
+      run: handleFormat
+    });
+
+    // Handle blur for auto-format
+    editor.onDidBlurEditorText(() => {
+      if (autoFormat) {
+        handleFormat();
+      }
+    });
   };
 
   const handleEditorWillMount = (monaco: any) => {
+    monacoRef.current = monaco;
     // Define Monokai Theme
     monaco.editor.defineTheme('monokai', {
       base: 'vs-dark',
@@ -108,6 +186,63 @@ export const CodeEditor: React.FC = () => {
         'editorLineNumber.foreground': '#1b1f234d',
       }
     });
+
+    // Define Dracula Theme
+    monaco.editor.defineTheme('dracula', {
+      base: 'vs-dark',
+      inherit: true,
+      rules: [
+        { token: 'comment', foreground: '6272a4' },
+        { token: 'keyword', foreground: 'ff79c6' },
+        { token: 'string', foreground: 'f1fa8c' },
+        { token: 'type', foreground: '8be9fd' },
+        { token: 'function', foreground: '50fa7b' },
+      ],
+      colors: {
+        'editor.background': '#282a36',
+        'editor.foreground': '#f8f8f2',
+        'editorCursor.foreground': '#f8f8f2',
+        'editor.lineHighlightBackground': '#44475a',
+        'editorLineNumber.foreground': '#6272a4',
+        'editor.selectionBackground': '#44475a',
+      }
+    });
+
+    // Define Solarized Dark
+    monaco.editor.defineTheme('solarized-dark', {
+      base: 'vs-dark',
+      inherit: true,
+      rules: [
+        { token: 'comment', foreground: '586e75' },
+        { token: 'keyword', foreground: '859900' },
+        { token: 'string', foreground: '2aa198' },
+      ],
+      colors: {
+        'editor.background': '#002b36',
+        'editor.foreground': '#839496',
+        'editorCursor.foreground': '#839496',
+        'editor.lineHighlightBackground': '#073642',
+        'editorLineNumber.foreground': '#586e75',
+      }
+    });
+
+    // Define Material Theme
+    monaco.editor.defineTheme('material', {
+      base: 'vs-dark',
+      inherit: true,
+      rules: [
+        { token: 'comment', foreground: '546e7a' },
+        { token: 'keyword', foreground: 'c792ea' },
+        { token: 'string', foreground: 'c3e88d' },
+      ],
+      colors: {
+        'editor.background': '#263238',
+        'editor.foreground': '#eeffff',
+        'editorCursor.foreground': '#ffcc00',
+        'editor.lineHighlightBackground': '#00000050',
+        'editorLineNumber.foreground': '#37474f',
+      }
+    });
   };
 
   const getMonacoTheme = () => {
@@ -134,6 +269,14 @@ export const CodeEditor: React.FC = () => {
           setShowSaved(false);
         }, 2000);
       }, 1000);
+
+      // Auto-format logic (after delay while typing)
+      if (autoFormat) {
+        if (formatTimeoutRef.current) clearTimeout(formatTimeoutRef.current);
+        formatTimeoutRef.current = setTimeout(() => {
+          handleFormat();
+        }, 3000); // 3 seconds of inactivity
+      }
     }
   };
 
@@ -141,18 +284,48 @@ export const CodeEditor: React.FC = () => {
     return () => {
       if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
       if (savedFadeTimeoutRef.current) clearTimeout(savedFadeTimeoutRef.current);
+      if (formatTimeoutRef.current) clearTimeout(formatTimeoutRef.current);
     };
   }, []);
 
+  const insertText = (text: string) => {
+    if (editorRef.current && monacoRef.current) {
+      const selection = editorRef.current.getSelection();
+      const range = new monacoRef.current.Range(
+        selection.startLineNumber,
+        selection.startColumn,
+        selection.endLineNumber,
+        selection.endColumn
+      );
+      editorRef.current.executeEdits('mobile-toolbar', [
+        { range, text, forceMoveMarkers: true }
+      ]);
+      editorRef.current.focus();
+    }
+  };
+
+  const mobileShortcuts = [
+    { label: '=', icon: <Equal size={14} />, value: ' = ' },
+    { label: '.', icon: <Dot size={14} />, value: '.' },
+    { label: '()', icon: <Parentheses size={14} />, value: '()' },
+    { label: '{}', icon: <Braces size={14} />, value: '{}' },
+    { label: '[]', icon: <Square size={14} />, value: '[]' },
+    { label: '=>', icon: <ChevronRight size={14} />, value: ' => ' },
+    { label: ';', icon: <span className="text-xs font-bold">;</span>, value: ';' },
+    { label: '"', icon: <span className="text-xs font-bold">"</span>, value: '""' },
+    { label: '`', icon: <span className="text-xs font-bold">`</span>, value: '``' },
+    { label: 'const', icon: <Code2 size={14} />, value: 'const ' },
+  ];
+
   return (
-    <div className="h-full w-full overflow-hidden relative">
+    <div className="h-full w-full overflow-hidden flex flex-col relative">
       <AnimatePresence>
         {isSaving && (
           <motion.div 
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }}
-            className="absolute bottom-4 right-8 z-20 flex items-center gap-2 bg-[#252526] border border-[#454545] px-3 py-1.5 rounded-full shadow-lg pointer-events-none"
+            className="absolute bottom-16 md:bottom-4 right-8 z-20 flex items-center gap-2 bg-[#252526] border border-[#454545] px-3 py-1.5 rounded-full shadow-lg pointer-events-none"
           >
             <CloudUpload size={14} className="text-[#007acc] animate-pulse" />
             <span className="text-[11px] text-[#888]">Saving...</span>
@@ -163,7 +336,7 @@ export const CodeEditor: React.FC = () => {
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.9 }}
-            className="absolute bottom-4 right-8 z-20 flex items-center gap-2 bg-[#252526]/80 border border-green-500/30 px-3 py-1.5 rounded-full pointer-events-none"
+            className="absolute bottom-16 md:bottom-4 right-8 z-20 flex items-center gap-2 bg-[#252526]/80 border border-green-500/30 px-3 py-1.5 rounded-full pointer-events-none"
           >
             <Check size={14} className="text-green-500" />
             <span className="text-[11px] text-[#888]">Saved</span>
@@ -171,31 +344,50 @@ export const CodeEditor: React.FC = () => {
         )}
       </AnimatePresence>
 
-      <Editor
-        height="100%"
-        language={activeFile.language}
-        value={activeFile.content}
-        theme={getMonacoTheme()}
-        beforeMount={handleEditorWillMount}
-        onMount={handleEditorDidMount}
-        onChange={handleEditorChange}
-        options={{
-          minimap: { enabled: minimap },
-          fontSize: fontSize,
-          fontFamily: fontFamily,
-          scrollBeyondLastLine: false,
-          automaticLayout: true,
-          padding: { top: 12 },
-          wordWrap: wordWrap,
-          lineNumbers: lineNumbers,
-          bracketPairColorization: { enabled: true },
-          formatOnPaste: true,
-          formatOnType: true,
-          cursorBlinking: 'smooth',
-          smoothScrolling: true,
-          contextmenu: true,
-        }}
-      />
+      <div className="flex-1 min-h-0">
+        <Editor
+          height="100%"
+          language={activeFile.language}
+          value={activeFile.content}
+          theme={getMonacoTheme()}
+          beforeMount={handleEditorWillMount}
+          onMount={handleEditorDidMount}
+          onChange={handleEditorChange}
+          options={{
+            minimap: { enabled: minimap },
+            fontSize: fontSize,
+            fontFamily: fontFamily,
+            scrollBeyondLastLine: false,
+            automaticLayout: true,
+            padding: { top: 12 },
+            wordWrap: wordWrap,
+            lineNumbers: lineNumbers,
+            bracketPairColorization: { enabled: true },
+            formatOnPaste: true,
+            formatOnType: true,
+            cursorBlinking: 'smooth',
+            smoothScrolling: true,
+            contextmenu: true,
+            quickSuggestions: true,
+            suggestOnTriggerCharacters: true,
+          }}
+        />
+      </div>
+
+      {/* Mobile Quick Toolbar */}
+      {isMobile && (
+        <div className="h-10 bg-[#252526] border-t border-[#454545] flex items-center px-2 gap-1 overflow-x-auto no-scrollbar shrink-0">
+          {mobileShortcuts.map((sc, i) => (
+            <button
+              key={i}
+              onClick={() => insertText(sc.value)}
+              className="flex items-center justify-center min-w-[36px] h-7 bg-[#333] hover:bg-[#444] text-[#ccc] rounded text-[10px] transition-colors active:bg-[#007acc] active:text-white"
+            >
+              {sc.icon || sc.label}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 };

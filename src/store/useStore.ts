@@ -81,6 +81,7 @@ export const useStore = create<AppState>()(
       wordWrap: 'on',
       minimap: false,
       themePreset: 'vs-code',
+      autoFormat: false,
       isSaving: false,
       isRunning: false,
       isConsoleVisible: false,
@@ -110,6 +111,7 @@ export const useStore = create<AppState>()(
       setWordWrap: (wordWrap) => set({ wordWrap }),
       setMinimap: (minimap) => set({ minimap }),
       setThemePreset: (themePreset) => set({ themePreset }),
+      setAutoFormat: (autoFormat) => set({ autoFormat }),
       setIsSaving: (isSaving) => set({ isSaving }),
       setIsRunning: (isRunning) => set({ isRunning }),
       setConsoleVisible: (isConsoleVisible) => set({ isConsoleVisible }),
@@ -210,6 +212,7 @@ export const useStore = create<AppState>()(
         wordWrap: state.wordWrap,
         minimap: state.minimap,
         themePreset: state.themePreset,
+        autoFormat: state.autoFormat,
       }),
     }
   )

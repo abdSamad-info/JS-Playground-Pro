@@ -33,7 +33,8 @@ export interface AppState {
   lineNumbers: 'on' | 'off';
   wordWrap: 'on' | 'off';
   minimap: boolean;
-  themePreset: 'vs-code' | 'monokai' | 'cobalt' | 'github-light';
+  themePreset: 'vs-code' | 'monokai' | 'cobalt' | 'github-light' | 'dracula' | 'solarized-dark' | 'material';
+  autoFormat: boolean;
   isSaving: boolean;
   isRunning: boolean;
   isConsoleVisible: boolean;
@@ -54,7 +55,8 @@ export interface AppState {
   setLineNumbers: (status: 'on' | 'off') => void;
   setWordWrap: (status: 'on' | 'off') => void;
   setMinimap: (status: boolean) => void;
-  setThemePreset: (preset: 'vs-code' | 'monokai' | 'cobalt' | 'github-light') => void;
+  setThemePreset: (preset: 'vs-code' | 'monokai' | 'cobalt' | 'github-light' | 'dracula' | 'solarized-dark' | 'material') => void;
+  setAutoFormat: (status: boolean) => void;
   setIsSaving: (status: boolean) => void;
   setIsRunning: (isRunning: boolean) => void;
   setConsoleVisible: (visible: boolean) => void;
