@@ -63,7 +63,7 @@ export const ActionsToolbar: React.FC = () => {
   };
 
   const handlePreview = () => {
-    const content = generateSandboxContent(files, activeFileId);
+    const content = generateSandboxContent(files);
     const blob = new Blob([content], { type: 'text/html' });
     const url = URL.createObjectURL(blob);
     window.open(url, '_blank');
@@ -140,7 +140,7 @@ export const ActionsToolbar: React.FC = () => {
             className="bg-[#007acc] hover:bg-[#007acc]/90 text-white h-7 px-3 gap-2 rounded text-[12px] font-medium transition-all active:scale-95"
           >
             <Play size={12} fill="currentColor" />
-            <span>Run</span>
+            <span className="hidden xs:inline">Run</span>
           </Button>
 
           <Button 
@@ -149,7 +149,7 @@ export const ActionsToolbar: React.FC = () => {
             className="h-7 px-2 text-[#cccccc] hover:text-white hover:bg-[#454545] rounded text-[12px] gap-1.5"
           >
             <ExternalLink size={12} />
-            <span>Preview</span>
+            <span className="hidden sm:inline">Preview</span>
           </Button>
 
           <Button 
@@ -162,7 +162,7 @@ export const ActionsToolbar: React.FC = () => {
             )}
           >
             <Terminal size={12} />
-            <span>Console</span>
+            <span className="hidden sm:inline">Console</span>
           </Button>
 
           <Button 
@@ -175,16 +175,16 @@ export const ActionsToolbar: React.FC = () => {
             )}
           >
             <Sparkles size={12} className="text-purple-400" />
-            <span>AI Assistant</span>
+            <span className="hidden sm:inline">AI Assistant</span>
           </Button>
 
-          <div className="w-[1px] h-4 bg-[#454545] mx-1" />
+          <div className="w-[1px] h-4 bg-[#454545] mx-1 hidden sm:block" />
 
           <Button 
             variant="ghost" 
             size="sm" 
             onClick={clearLogs}
-            className="h-7 px-2 text-[#cccccc] hover:text-white hover:bg-[#454545] rounded text-[12px]"
+            className="h-7 px-2 text-[#cccccc] hover:text-white hover:bg-[#454545] rounded text-[12px] hidden md:flex"
           >
             <RotateCcw size={12} className="mr-1.5" />
             Clear Logs
@@ -195,7 +195,7 @@ export const ActionsToolbar: React.FC = () => {
             size="sm" 
             onClick={handleSave}
             disabled={isSaving}
-            className="h-7 px-2 text-[#cccccc] hover:text-white hover:bg-[#454545] rounded text-[12px] gap-1.5 min-w-[70px]"
+            className="h-7 px-2 text-[#cccccc] hover:text-white hover:bg-[#454545] rounded text-[12px] gap-1.5 min-w-[70px] hidden md:flex"
           >
             {isSaving ? (
               <RotateCcw size={12} className="animate-spin" />
@@ -274,6 +274,7 @@ export const ActionsToolbar: React.FC = () => {
             <DropdownMenuContent className="bg-[#252526] border-[#454545] text-white w-48">
               <DropdownMenuLabel>Project Settings</DropdownMenuLabel>
               <DropdownMenuSeparator className="bg-[#454545]" />
+              
               <DropdownMenuItem 
                 onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
                 className="hover:bg-[#37373d] cursor-pointer"
@@ -281,6 +282,25 @@ export const ActionsToolbar: React.FC = () => {
                 {theme === 'dark' ? <Sun size={14} className="mr-2" /> : <Moon size={14} className="mr-2" />}
                 {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
               </DropdownMenuItem>
+
+              <div className="md:hidden">
+                <DropdownMenuSeparator className="bg-[#454545]" />
+                <DropdownMenuItem 
+                  onClick={handleSave}
+                  className="hover:bg-[#37373d] cursor-pointer"
+                >
+                  <Save size={14} className="mr-2" />
+                  Save Project
+                </DropdownMenuItem>
+                <DropdownMenuItem 
+                  onClick={clearLogs}
+                  className="hover:bg-[#37373d] cursor-pointer"
+                >
+                  <RotateCcw size={14} className="mr-2" />
+                  Clear Logs
+                </DropdownMenuItem>
+              </div>
+
               <DropdownMenuSeparator className="bg-[#454545]" />
               <DropdownMenuItem 
                 onClick={() => {

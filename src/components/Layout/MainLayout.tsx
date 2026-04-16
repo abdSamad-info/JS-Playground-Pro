@@ -17,6 +17,8 @@ import { Menu, X } from 'lucide-react';
 import { Button } from '@/components/shadcn-ui/button';
 import { cn } from '@/lib/utils';
 
+import { motion, AnimatePresence } from 'motion/react';
+
 export const MainLayout: React.FC = () => {
   const { 
     setIsRunning, 
@@ -28,8 +30,21 @@ export const MainLayout: React.FC = () => {
     setAIPanelVisible,
     deleteFile 
   } = useStore();
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false); // Default closed on mobile
   const [mobileView, setMobileView] = useState<'editor' | 'preview'>('editor');
+  const [isLargeScreen, setIsLargeScreen] = useState(window.innerWidth >= 640);
+
+  useEffect(() => {
+    const handleResize = () => {
+      const large = window.innerWidth >= 640;
+      setIsLargeScreen(large);
+      if (large) setIsSidebarOpen(true);
+    };
+
+    window.addEventListener('resize', handleResize);
+    handleResize(); // Initial check
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -48,11 +63,24 @@ export const MainLayout: React.FC = () => {
       <ActionsToolbar />
       
       <div className="flex-1 flex overflow-hidden relative">
+        {/* Mobile Sidebar Overlay */}
+        <AnimatePresence>
+          {!isLargeScreen && isSidebarOpen && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsSidebarOpen(false)}
+              className="absolute inset-0 bg-black/50 z-40 sm:hidden"
+            />
+          )}
+        </AnimatePresence>
+
         {/* Mobile Sidebar Toggle */}
         <Button
           variant="ghost"
           size="icon"
-          className="absolute bottom-4 left-4 z-50 sm:hidden bg-[#007acc] text-white rounded-full shadow-lg"
+          className="absolute bottom-4 left-4 z-50 sm:hidden bg-[#007acc] text-white rounded-full shadow-lg hover:bg-[#007acc]/90"
           onClick={() => setIsSidebarOpen(!isSidebarOpen)}
         >
           {isSidebarOpen ? <X size={20} /> : <Menu size={20} />}
@@ -63,7 +91,7 @@ export const MainLayout: React.FC = () => {
           <Button
             variant={mobileView === 'editor' ? 'default' : 'ghost'}
             size="sm"
-            className={cn("rounded-full h-8 px-4", mobileView === 'editor' && "bg-[#007acc]")}
+            className={cn("rounded-full h-8 px-4 text-[12px]", mobileView === 'editor' && "bg-[#007acc] text-white")}
             onClick={() => setMobileView('editor')}
           >
             Editor
@@ -71,19 +99,31 @@ export const MainLayout: React.FC = () => {
           <Button
             variant={mobileView === 'preview' ? 'default' : 'ghost'}
             size="sm"
-            className={cn("rounded-full h-8 px-4", mobileView === 'preview' && "bg-[#007acc]")}
+            className={cn("rounded-full h-8 px-4 text-[12px]", mobileView === 'preview' && "bg-[#007acc] text-white")}
             onClick={() => setMobileView('preview')}
           >
             Preview
           </Button>
         </div>
 
-        <div className={cn(
-          "transition-all duration-300 ease-in-out h-full shrink-0",
-          isSidebarOpen ? "w-auto" : "w-0 overflow-hidden"
-        )}>
-          <FileExplorer />
-        </div>
+        {/* Sidebar */}
+        <motion.div 
+          initial={false}
+          animate={{ 
+            width: isSidebarOpen ? (isLargeScreen ? 'auto' : '260px') : 0,
+            x: !isLargeScreen && !isSidebarOpen ? -260 : 0
+          }}
+          transition={{ type: 'spring', damping: 20, stiffness: 150 }}
+          className={cn(
+            "h-full shrink-0 z-50 bg-[#252526] border-r border-[#454545]",
+            !isLargeScreen && "absolute left-0 top-0 shadow-2xl",
+            !isSidebarOpen && !isLargeScreen && "pointer-events-none"
+          )}
+        >
+          <div className="w-[260px] h-full overflow-hidden">
+            <FileExplorer />
+          </div>
+        </motion.div>
         
         <div className="flex-1 flex flex-col overflow-hidden">
           <div className="h-[35px] bg-[#252526] border-b border-[#454545] flex items-center px-0 overflow-x-auto scrollbar-hide">
@@ -143,14 +183,33 @@ export const MainLayout: React.FC = () => {
             {/* Mobile View Content */}
             <div className="sm:hidden flex-1 flex flex-col overflow-hidden">
               {mobileView === 'editor' ? (
-                <>
+                <div className="flex-1 flex flex-col overflow-hidden relative">
                   <CodeEditor />
-                  {isConsoleVisible && (
-                    <div className="h-1/3 border-t border-[#454545]">
-                      <ConsoleOutput />
-                    </div>
-                  )}
-                </>
+                  <AnimatePresence>
+                    {isConsoleVisible && (
+                      <motion.div 
+                        initial={{ y: '100%' }}
+                        animate={{ y: 0 }}
+                        exit={{ y: '100%' }}
+                        className="absolute inset-x-0 bottom-0 h-1/2 bg-black z-30 border-t border-[#454545]"
+                      >
+                        <ConsoleOutput />
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                  <AnimatePresence>
+                    {isAIPanelVisible && (
+                      <motion.div 
+                        initial={{ x: '100%' }}
+                        animate={{ x: 0 }}
+                        exit={{ x: '100%' }}
+                        className="absolute inset-0 bg-[#252526] z-40"
+                      >
+                        <AIAssistant />
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
               ) : (
                 <LivePreview />
               )}

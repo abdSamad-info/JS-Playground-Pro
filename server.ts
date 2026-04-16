@@ -22,19 +22,15 @@ async function startServer() {
     });
     app.use(vite.middlewares);
   } else {
-    const distPath = path.join(process.cwd(), 'dist');
-    // Serve static files with correct MIME types
-    app.use(express.static(distPath, {
-      setHeaders: (res, filePath) => {
-        if (filePath.endsWith('.js')) {
-          res.setHeader('Content-Type', 'application/javascript');
-        }
-      }
-    }));
+    const distPath = path.resolve(__dirname, 'dist');
+    console.log(`[Production] Serving static files from: ${distPath}`);
     
-    // SPA fallback
+    // Serve static files first
+    app.use(express.static(distPath));
+    
+    // SPA fallback: serve index.html for any other request
     app.get('*', (req, res) => {
-      res.sendFile(path.join(distPath, 'index.html'));
+      res.sendFile(path.resolve(distPath, 'index.html'));
     });
   }
 
