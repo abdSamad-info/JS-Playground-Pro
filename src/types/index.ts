@@ -40,7 +40,7 @@ export interface AppState {
   isConsoleVisible: boolean;
   isAIPanelVisible: boolean;
   aiPrompt: string | null;
-  terminalLogs: { type: 'input' | 'output'; content: string; timestamp: number }[];
+  terminalLogs: { type: 'input' | 'output'; content: string; timestamp: number; language?: string }[];
   
   // Actions
   setFiles: (files: File[]) => void;
@@ -49,7 +49,7 @@ export interface AppState {
   setActiveFileId: (id: string) => void;
   addLog: (log: Omit<LogEntry, 'id' | 'timestamp'>) => void;
   clearLogs: () => void;
-  addTerminalLog: (log: { type: 'input' | 'output'; content: string }) => void;
+  addTerminalLog: (log: { type: 'input' | 'output'; content: string; language?: string }) => void;
   clearTerminalLogs: () => void;
   setTheme: (theme: 'light' | 'dark') => void;
   setAccentColor: (color: string) => void;

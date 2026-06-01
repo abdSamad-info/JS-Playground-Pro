@@ -4,9 +4,74 @@ import { Terminal as TerminalIcon, X, ChevronRight, Trash2 } from 'lucide-react'
 import { Button } from '@/components/shadcn-ui/button';
 import { ScrollArea } from '@/components/shadcn-ui/scroll-area';
 
-const renderFormattedLine = (line: string, lineKey: string | number) => {
-  // 1. Simple ANSI blue folder helper check (it uses \u001b[34m...\u001b[0m)
-  if (line.includes('\u001b[34m') || line.includes('\u001b[0m')) {
+const renderJavaScriptLine = (line: string, key: string | number) => {
+  if (!line.trim()) {
+    return <div key={key} className="min-h-[1.2rem] font-mono leading-relaxed">&nbsp;</div>;
+  }
+
+  if (line.trim().startsWith('//') || line.trim().startsWith('/*') || line.trim().startsWith('*')) {
+    return <div key={key} className="text-[#6a9955] font-mono leading-relaxed whitespace-pre">{line}</div>;
+  }
+
+  const tokenRegex = /(\/\/[^\n]*)|("[^"\\]*(?:\\.[^"\\]*)*")|('[^'\\]*(?:\\.[^'\\]*)*')|(`[^`\\]*(?:\\.[^`\\]*)*`)|(\b(?:const|let|var|function|return|if|else|for|while|class|import|export|from|new|this|try|catch|finally|async|await|switch|case|default|break|continue|throw|typeof|instanceof|in|of|void|delete|debugger)\b)|(\b(?:console|log|error|warn|info|document|window|process|require|module|exports|Blob|JSON|Object|Array|String|Number|Boolean|Function|RegExp|Map|Set|Promise|Error)\b)|(\b\d+(?:\.\d+)?\b)|(\b\w+(?=\())|([{}()[\].,;+\-*/%&|^=!<>?:~]+)|(\s+)|(\b\w+\b)/g;
+
+  let match;
+  const spans: React.ReactNode[] = [];
+  let lastIndex = 0;
+  let tokenIdx = 0;
+
+  tokenRegex.lastIndex = 0;
+
+  while ((match = tokenRegex.exec(line)) !== null) {
+    const matchedText = match[0];
+    
+    if (match.index > lastIndex) {
+      const gapText = line.substring(lastIndex, match.index);
+      spans.push(<span key={`gap-${key}-${tokenIdx++}`} className="text-[#cccccc]">{gapText}</span>);
+    }
+
+    if (match[1]) {
+      spans.push(<span key={`comment-${key}-${tokenIdx++}`} className="text-[#6a9955] font-mono">{matchedText}</span>);
+    } else if (match[2] || match[3] || match[4]) {
+      spans.push(<span key={`string-${key}-${tokenIdx++}`} className="text-[#ce9178] font-mono">{matchedText}</span>);
+    } else if (match[5]) {
+      spans.push(<span key={`keyword-${key}-${tokenIdx++}`} className="text-[#c586c0] font-bold font-mono">{matchedText}</span>);
+    } else if (match[6]) {
+      spans.push(<span key={`builtin-${key}-${tokenIdx++}`} className="text-[#4ec9b0] font-mono">{matchedText}</span>);
+    } else if (match[7]) {
+      spans.push(<span key={`number-${key}-${tokenIdx++}`} className="text-[#b5cea8] font-mono">{matchedText}</span>);
+    } else if (match[8]) {
+      spans.push(<span key={`function-${key}-${tokenIdx++}`} className="text-[#dcdcaa] font-mono">{matchedText}</span>);
+    } else if (match[9]) {
+      spans.push(<span key={`symbol-${key}-${tokenIdx++}`} className="text-[#808080] font-mono">{matchedText}</span>);
+    } else if (match[10]) {
+      spans.push(<span key={`space-${key}-${tokenIdx++}`}>{matchedText}</span>);
+    } else {
+      spans.push(<span key={`ident-${key}-${tokenIdx++}`} className="text-[#9cdcfe] font-mono">{matchedText}</span>);
+    }
+
+    lastIndex = tokenRegex.lastIndex;
+  }
+
+  if (lastIndex < line.length) {
+    const trailingText = line.substring(lastIndex);
+    spans.push(<span key={`trailing-${key}-${tokenIdx++}`} className="text-[#cccccc]">{trailingText}</span>);
+  }
+
+  return (
+    <div key={key} className="font-mono whitespace-pre py-0.5 leading-relaxed flex flex-wrap">
+      {spans}
+    </div>
+  );
+};
+
+const renderFormattedLine = (line: string, lineKey: string | number, language?: string) => {
+  if (language === 'javascript' || language === 'typescript') {
+    return renderJavaScriptLine(line, lineKey);
+  }
+
+  // 1. Simple ANSI helper check supporting blue, green, and red text (34, 32, 31)
+  if (line.includes('\u001b[') || line.includes('\u001b[0m')) {
     const parts: React.ReactNode[] = [];
     let currentIdx = 0;
     const regex = /\u001b\[(\d+)m([^\u001b]+)\u001b\[0m/g;
@@ -18,7 +83,10 @@ const renderFormattedLine = (line: string, lineKey: string | number) => {
       }
       const code = match[1];
       const text = match[2];
-      const colorClass = code === '34' ? 'text-blue-400 font-bold' : '';
+      let colorClass = '';
+      if (code === '34') colorClass = 'text-blue-400 font-bold';
+      else if (code === '32') colorClass = 'text-emerald-400 font-semibold';
+      else if (code === '31') colorClass = 'text-rose-400 font-semibold';
       parts.push(<span key={`ansi-${lineKey}-${partKeyIdx++}`} className={colorClass}>{text}</span>);
       currentIdx = regex.lastIndex;
     }
@@ -78,7 +146,7 @@ const renderFormattedLine = (line: string, lineKey: string | number) => {
 };
 
 export const SimulatedTerminal: React.FC = () => {
-  const { files, folders, terminalLogs, addTerminalLog, clearTerminalLogs, addFolder } = useStore();
+  const { files, folders, terminalLogs, addTerminalLog, clearTerminalLogs, addFolder, addFile, activeFileId } = useStore();
   const [input, setInput] = useState('');
   const [history, setHistory] = useState<string[]>(() => {
     try {
@@ -90,6 +158,25 @@ export const SimulatedTerminal: React.FC = () => {
   });
   const [historyIndex, setHistoryIndex] = useState<number>(-1);
   const [tempInput, setTempInput] = useState<string>('');
+  
+  const [gitState, setGitState] = useState<{
+    initialized: boolean;
+    branch: string;
+    staged: string[];
+    commits: { hash: string; message: string; timestamp: number; files: { name: string; content: string }[] }[];
+  }>(() => {
+    try {
+      const saved = localStorage.getItem('js-playground-git-state');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return {
+      initialized: false,
+      branch: 'main',
+      staged: [],
+      commits: []
+    };
+  });
+
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -100,6 +187,14 @@ export const SimulatedTerminal: React.FC = () => {
       console.error(e);
     }
   }, [history]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('js-playground-git-state', JSON.stringify(gitState));
+    } catch (e) {
+      console.error(e);
+    }
+  }, [gitState]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -119,7 +214,7 @@ export const SimulatedTerminal: React.FC = () => {
       case 'help':
         addTerminalLog({ 
           type: 'output', 
-          content: 'Available commands:\n  ls      - List files and folders with types and sizes\n  cat     - View file content\n  node    - Run a JavaScript file (e.g. node index.js)\n  mkdir   - Create a new folder\n  clear   - Clear terminal logs\n  help    - Show this help message\n  whoami  - Show current user info\n  date    - Show current date' 
+          content: 'Available commands:\n  ls      - List files and folders with types and sizes\n  cat     - View file content with syntax highlighting\n  touch   - Create an empty file (e.g. touch test.js)\n  mkdir   - Create a new folder\n  node    - Run a JavaScript file (e.g. node index.js)\n  git     - Simulate Git repository operations (init, status, add, commit, log)\n  clear   - Clear terminal logs\n  help    - Show this help message\n  whoami  - Show current user info\n  date    - Show current date' 
         });
         return true;
       case 'ls': {
@@ -168,13 +263,211 @@ export const SimulatedTerminal: React.FC = () => {
         } else {
           const file = files.find(f => f.name === args[1]);
           if (file) {
-            addTerminalLog({ type: 'output', content: file.content });
+            addTerminalLog({ type: 'output', content: file.content, language: file.language });
             return true;
           } else {
             addTerminalLog({ type: 'output', content: `cat: ${args[1]}: No such file` });
             return false;
           }
         }
+      case 'touch':
+        if (args.length < 2) {
+          addTerminalLog({ type: 'output', content: 'Usage: touch <filename>' });
+          return false;
+        } else {
+          const fileName = args[1];
+          // Determine language from extension
+          const ext = fileName.split('.').pop()?.toLowerCase();
+          let language: "javascript" | "html" | "css" | "json" | "typescript" = "javascript";
+          if (ext === 'html') language = 'html';
+          else if (ext === 'css') language = 'css';
+          else if (ext === 'json') language = 'json';
+          else if (ext === 'ts' || ext === 'tsx') language = 'typescript';
+
+          // Put file in current active directory parent
+          const activeFile = files.find(f => f.id === activeFileId);
+          const parentId = activeFile ? activeFile.parentId : null;
+
+          const success = addFile(fileName, language, parentId);
+          if (success) {
+            addTerminalLog({ type: 'output', content: `File '${fileName}' created successfully.` });
+            return true;
+          } else {
+            addTerminalLog({ type: 'output', content: `touch: cannot create file '${fileName}': File already exists` });
+            return false;
+          }
+        }
+      case 'git': {
+        if (args.length < 2) {
+          addTerminalLog({ 
+            type: 'output', 
+            content: 'Usage: git <subcommand> [<args>]\n\nSupported git commands:\n  init       - Initialize a simulated git repository\n  status     - Show working tree status\n  add        - Stage files to be committed\n  commit     - Record changes to the repository\n  log        - Show commit history' 
+          });
+          return false;
+        }
+
+        const sub = args[1].toLowerCase();
+        if (sub === 'init') {
+          if (gitState.initialized) {
+            addTerminalLog({ type: 'output', content: 'Reinitialized existing Git repository in /workspace/.git/' });
+            return true;
+          } else {
+            setGitState(prev => ({ ...prev, initialized: true }));
+            addTerminalLog({ type: 'output', content: 'Initialized empty Git repository in /workspace/.git/' });
+            return true;
+          }
+        }
+
+        if (!gitState.initialized) {
+          addTerminalLog({ type: 'output', content: 'fatal: not a git repository (or any of the parent directories): .git' });
+          return false;
+        }
+
+        switch (sub) {
+          case 'status': {
+            const staged = gitState.staged;
+            const lastCommit = gitState.commits[gitState.commits.length - 1];
+            const committedFiles = lastCommit ? lastCommit.files.map(f => f.name) : [];
+            
+            const untracked = files.filter(f => !staged.includes(f.name) && !committedFiles.includes(f.name));
+            const modified = files.filter(f => {
+              if (staged.includes(f.name)) return false;
+              if (!committedFiles.includes(f.name)) return false;
+              const original = lastCommit?.files.find(cf => cf.name === f.name);
+              return original && original.content !== f.content;
+            });
+
+            let lines = [`On branch ${gitState.branch}`];
+            if (gitState.commits.length === 0) {
+              lines.push('No commits yet\n');
+            } else {
+              lines.push('');
+            }
+
+            if (staged.length > 0) {
+              lines.push('Changes to be committed:');
+              lines.push('  (use "git restore --staged <file>..." to unstage)');
+              staged.forEach(f => {
+                lines.push(`\t\u001b[32mnew file:   ${f}\u001b[0m`);
+              });
+              lines.push('');
+            }
+
+            if (modified.length > 0) {
+              lines.push('Changes not staged for commit:');
+              lines.push('  (use "git add <file>..." to update what will be committed)');
+              modified.forEach(f => {
+                lines.push(`\t\u001b[31mmodified:   ${f.name}\u001b[0m`);
+              });
+              lines.push('');
+            }
+
+            if (untracked.length > 0) {
+              lines.push('Untracked files:');
+              lines.push('  (use "git add <file>..." to include in what will be committed)');
+              untracked.forEach(f => {
+                lines.push(`\t\u001b[31m${f.name}\u001b[0m`);
+              });
+              lines.push('');
+            }
+
+            if (staged.length === 0 && modified.length === 0 && untracked.length === 0) {
+              lines.push('nothing to commit, working tree clean');
+            } else if (staged.length === 0) {
+              lines.push('no changes added to commit (use "git add" and/or "git commit -a")');
+            }
+
+            addTerminalLog({ type: 'output', content: lines.join('\n') });
+            return true;
+          }
+          case 'add': {
+            if (args.length < 3) {
+              addTerminalLog({ type: 'output', content: 'Nothing specified, nothing added.' });
+              return false;
+            }
+            const target = args[2];
+            if (target === '.') {
+              const allNames = files.map(f => f.name);
+              setGitState(prev => ({
+                ...prev,
+                staged: Array.from(new Set([...prev.staged, ...allNames]))
+              }));
+              addTerminalLog({ type: 'output', content: `Staged all ${allNames.length} files.` });
+              return true;
+            } else {
+              const matched = files.find(f => f.name === target);
+              if (!matched) {
+                addTerminalLog({ type: 'output', content: `fatal: pathspec '${target}' did not match any files` });
+                return false;
+              }
+              setGitState(prev => ({
+                ...prev,
+                staged: Array.from(new Set([...prev.staged, target]))
+              }));
+              addTerminalLog({ type: 'output', content: `Staged '${target}'.` });
+              return true;
+            }
+          }
+          case 'commit': {
+            const mIndex = args.indexOf('-m');
+            let message = '';
+            if (mIndex !== -1 && args[mIndex + 1]) {
+              const matchMsg = trimmedSub.match(/git commit -m\s+["']([^"']+)["']/i) || trimmedSub.match(/git commit -m\s+(\S+)/i);
+              message = matchMsg ? matchMsg[1] : '';
+            }
+
+            if (!message) {
+              addTerminalLog({ type: 'output', content: 'error: switch `m\' requires a value\nUsage: git commit -m "commit message"' });
+              return false;
+            }
+
+            if (gitState.staged.length === 0) {
+              addTerminalLog({ type: 'output', content: 'On branch main\nnothing to commit, working tree clean' });
+              return true;
+            }
+
+            const hash = Math.random().toString(16).substring(2, 9);
+            const committedFiles = files.map(f => ({ name: f.name, content: f.content }));
+            
+            const newCommit = {
+              hash,
+              message,
+              timestamp: Date.now(),
+              files: committedFiles
+            };
+
+            const stagedCount = gitState.staged.length;
+
+            setGitState(prev => ({
+              ...prev,
+              staged: [],
+              commits: [...prev.commits, newCommit]
+            }));
+
+            addTerminalLog({ 
+              type: 'output', 
+              content: `[main ${hash}] ${message}\n ${stagedCount} files changed\n create mode 100644 ${gitState.staged.join(', ')}` 
+            });
+            return true;
+          }
+          case 'log': {
+            if (gitState.commits.length === 0) {
+              addTerminalLog({ type: 'output', content: "fatal: your current branch 'main' does not have any commits yet" });
+              return false;
+            }
+
+            const logs = gitState.commits.slice().reverse().map(c => {
+              return `commit ${c.hash} (HEAD -> ${gitState.branch})\nAuthor: git-admin <admin@playground>\nDate:   ${new Date(c.timestamp).toUTCString()}\n\n    ${c.message}\n`;
+            }).join('\n');
+
+            addTerminalLog({ type: 'output', content: logs });
+            return true;
+          }
+          default:
+            addTerminalLog({ type: 'output', content: `git: '${sub}' is not a git command. See 'git --help'.` });
+            return false;
+        }
+      }
       case 'mkdir':
         if (args.length < 2) {
           addTerminalLog({ type: 'output', content: 'Usage: mkdir <folderName>' });
@@ -321,7 +614,7 @@ export const SimulatedTerminal: React.FC = () => {
       const prefix = tokens[tokens.length - 1];
 
       if (tokens.length === 1) {
-        const availableCommands = ['help', 'ls', 'cat', 'node', 'run', 'clear', 'whoami', 'date', 'mkdir'];
+        const availableCommands = ['help', 'ls', 'cat', 'node', 'run', 'clear', 'whoami', 'date', 'mkdir', 'touch', 'git'];
         const matches = availableCommands.filter(c => c.startsWith(prefix.toLowerCase()));
         if (matches.length === 1) {
           setInput(matches[0] + ' ');
@@ -383,7 +676,7 @@ export const SimulatedTerminal: React.FC = () => {
                 </div>
               ) : (
                 <div className="space-y-1 block pl-3 py-1 border-l-2 border-[#1f1f1f]/80 ml-1.5 msg-level-output">
-                  {log.content.split('\n').map((line, lineIdx) => renderFormattedLine(line, `${idx}-${lineIdx}`))}
+                  {log.content.split('\n').map((line, lineIdx) => renderFormattedLine(line, `${idx}-${lineIdx}`, log.language))}
                 </div>
               )}
             </div>
