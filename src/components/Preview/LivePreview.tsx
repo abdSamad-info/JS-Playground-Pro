@@ -4,7 +4,7 @@ import { generateSandboxContent } from '@/lib/sandbox';
 import { Loader2 } from 'lucide-react';
 
 export const LivePreview: React.FC = () => {
-  const { files, isRunning, setIsRunning, addLog } = useStore();
+  const { files, isRunning, setIsRunning, addLog, activeFileId, clearLogs } = useStore();
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
   useEffect(() => {
@@ -20,10 +20,10 @@ export const LivePreview: React.FC = () => {
 
   useEffect(() => {
     if (isRunning && iframeRef.current) {
-      // Clear logs before running if needed? 
-      // User might want to see previous logs, so we don't clear by default.
+      // Clear logs automatically before running to differentiate from previous runs
+      clearLogs();
       
-      const content = generateSandboxContent(files);
+      const content = generateSandboxContent(files, activeFileId);
       const iframe = iframeRef.current;
       
       // Force a reload by clearing srcdoc first or using a unique URL if needed
@@ -44,7 +44,7 @@ export const LivePreview: React.FC = () => {
 
       return () => clearTimeout(reloadTimer);
     }
-  }, [isRunning, files, setIsRunning]);
+  }, [isRunning, files, activeFileId, setIsRunning, clearLogs]);
 
   return (
     <div className="h-full w-full bg-[#2d2d2d] relative flex flex-col">

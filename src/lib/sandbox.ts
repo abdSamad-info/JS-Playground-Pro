@@ -1,9 +1,22 @@
 import { File } from '../types/index';
 
-export const generateSandboxContent = (files: File[]) => {
-  const htmlFile = files.find(f => f.name === 'index.html') || files.find(f => f.language === 'html');
-  const cssFile = files.find(f => f.name === 'styles.css') || files.find(f => f.language === 'css');
-  const jsFile = files.find(f => f.name === 'index.js') || files.find(f => f.language === 'javascript');
+export const generateSandboxContent = (files: File[], activeFileId?: string) => {
+  const activeFile = activeFileId ? files.find(f => f.id === activeFileId) : null;
+
+  let htmlFile = files.find(f => f.name === 'index.html') || files.find(f => f.language === 'html');
+  let cssFile = files.find(f => f.name === 'styles.css') || files.find(f => f.language === 'css');
+  let jsFile = files.find(f => f.name === 'index.js') || files.find(f => f.language === 'javascript');
+
+  // If there is an active file, use it to override the default files for preview/execution
+  if (activeFile) {
+    if (activeFile.language === 'javascript' || activeFile.name.endsWith('.js')) {
+      jsFile = activeFile;
+    } else if (activeFile.language === 'html' || activeFile.name.endsWith('.html')) {
+      htmlFile = activeFile;
+    } else if (activeFile.language === 'css' || activeFile.name.endsWith('.css')) {
+      cssFile = activeFile;
+    }
+  }
 
   const html = htmlFile?.content || '';
   const css = cssFile?.content || '';

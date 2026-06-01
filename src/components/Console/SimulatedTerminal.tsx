@@ -32,7 +32,7 @@ export const SimulatedTerminal: React.FC = () => {
       case 'help':
         addTerminalLog({ 
           type: 'output', 
-          content: 'Available commands:\n  ls      - List files and folders\n  cat     - View file content\n  clear   - Clear terminal logs\n  help    - Show this help message\n  whoami  - Show current user info\n  date    - Show current date' 
+          content: 'Available commands:\n  ls      - List files and folders\n  cat     - View file content\n  node    - Run a JavaScript file (e.g. node index.js)\n  clear   - Clear terminal logs\n  help    - Show this help message\n  whoami  - Show current user info\n  date    - Show current date' 
         });
         break;
       case 'ls':
@@ -51,6 +51,57 @@ export const SimulatedTerminal: React.FC = () => {
             addTerminalLog({ type: 'output', content: file.content });
           } else {
             addTerminalLog({ type: 'output', content: `cat: ${args[1]}: No such file` });
+          }
+        }
+        break;
+      case 'node':
+      case 'run':
+        if (args.length < 2) {
+          addTerminalLog({ type: 'output', content: `Usage: ${command} <filename.js>` });
+        } else {
+          const fileName = args[1];
+          let file = files.find(f => f.name === fileName);
+          if (!file && !fileName.endsWith('.js')) {
+            file = files.find(f => f.name === `${fileName}.js`);
+          }
+
+          if (!file) {
+            addTerminalLog({ type: 'output', content: `${command}: ${fileName}: No such file or directory` });
+          } else if (file.language !== 'javascript' && !file.name.endsWith('.js')) {
+            addTerminalLog({ type: 'output', content: `${command}: ${file.name}: Only JavaScript files can be executed with node` });
+          } else {
+            const logsCaptured: string[] = [];
+            const customConsole = {
+              log: (...m: any[]) => {
+                logsCaptured.push(m.map(x => typeof x === 'object' ? JSON.stringify(x, null, 2) : String(x)).join(' '));
+              },
+              error: (...m: any[]) => {
+                logsCaptured.push(`error: ${m.join(' ')}`);
+              },
+              warn: (...m: any[]) => {
+                logsCaptured.push(`warning: ${m.join(' ')}`);
+              },
+              info: (...m: any[]) => {
+                logsCaptured.push(`info: ${m.join(' ')}`);
+              }
+            };
+
+            try {
+              const runCode = new Function('console', `
+                try {
+                  ${file.content}
+                } catch(err) {
+                  console.error(err.message);
+                }
+              `);
+              runCode(customConsole);
+              addTerminalLog({ 
+                type: 'output', 
+                content: logsCaptured.join('\n') || `[${file.name}] execution finished successfully with no output.` 
+              });
+            } catch (err: any) {
+              addTerminalLog({ type: 'output', content: `runtime error: ${err.message}` });
+            }
           }
         }
         break;
