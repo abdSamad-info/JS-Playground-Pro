@@ -17,15 +17,41 @@ export interface StarterTemplate {
   files: { name: string; language: FileType; content: string }[];
 }
 
+export interface ClonedRepoResult {
+  files: File[];
+  folders: Folder[];
+  gitInfo: {
+    remoteUrl: string;
+    owner: string;
+    repo: string;
+    branch: string;
+    defaultBranch?: string;
+    commitHash?: string;
+    description?: string;
+  };
+}
+
 export const parseGitHubUrl = (input: string): GitHubRepoInfo | null => {
   let cleaned = input.trim();
   if (!cleaned) return null;
 
-  // Remove trailing .git or slashes
+  // Handle git SSH syntax: git@github.com:owner/repo.git
+  const sshMatch = cleaned.match(/^git@github\.com:([^\/]+)\/([^\/]+?)(?:\.git)?$/i);
+  if (sshMatch) {
+    return {
+      owner: sshMatch[1],
+      repo: sshMatch[2].replace(/\.git$/, ''),
+      branch: 'main',
+      subpath: ''
+    };
+  }
+
+  // Remove leading protocol prefix if partial, trailing .git, or trailing slashes
+  cleaned = cleaned.replace(/^https?:\/\//i, '').replace(/^www\./i, '');
   cleaned = cleaned.replace(/\.git$/, '').replace(/\/+$/, '');
 
-  // Case 1: Full URL https://github.com/owner/repo/tree/branch/subpath
-  const fullUrlMatch = cleaned.match(/github\.com\/([^\/]+)\/([^\/]+)(?:\/tree\/([^\/]+)(?:\/(.+))?)?/i);
+  // Case 1: Full URL github.com/owner/repo/tree/branch/subpath
+  const fullUrlMatch = cleaned.match(/^github\.com\/([^\/]+)\/([^\/]+)(?:\/tree\/([^\/]+)(?:\/(.+))?)?/i);
   if (fullUrlMatch) {
     return {
       owner: fullUrlMatch[1],
@@ -35,7 +61,17 @@ export const parseGitHubUrl = (input: string): GitHubRepoInfo | null => {
     };
   }
 
-  // Case 2: Short format owner/repo or owner/repo#branch
+  // Case 2: Short format owner/repo or owner/repo#branch or owner/repo/tree/branch
+  const branchPathMatch = cleaned.match(/^([a-zA-Z0-9_-]+)\/([a-zA-Z0-9_.-]+)\/tree\/([^\/]+)(?:\/(.+))?$/);
+  if (branchPathMatch) {
+    return {
+      owner: branchPathMatch[1],
+      repo: branchPathMatch[2],
+      branch: branchPathMatch[3],
+      subpath: branchPathMatch[4] || ''
+    };
+  }
+
   const shortMatch = cleaned.match(/^([a-zA-Z0-9_-]+)\/([a-zA-Z0-9_.-]+)(?:#([a-zA-Z0-9_.-]+))?$/);
   if (shortMatch) {
     return {
@@ -51,8 +87,8 @@ export const parseGitHubUrl = (input: string): GitHubRepoInfo | null => {
 
 const detectLanguage = (filename: string): FileType => {
   const lower = filename.toLowerCase();
-  if (lower.endsWith('.js') || lower.endsWith('.mjs') || lower.endsWith('.cjs')) return 'javascript';
-  if (lower.endsWith('.ts') || lower.endsWith('.tsx') || lower.endsWith('.jsx')) return 'typescript';
+  if (lower.endsWith('.js') || lower.endsWith('.mjs') || lower.endsWith('.cjs') || lower.endsWith('.jsx')) return 'javascript';
+  if (lower.endsWith('.ts') || lower.endsWith('.tsx')) return 'typescript';
   if (lower.endsWith('.html') || lower.endsWith('.htm')) return 'html';
   if (lower.endsWith('.css') || lower.endsWith('.scss')) return 'css';
   if (lower.endsWith('.json')) return 'json';
@@ -68,6 +104,8 @@ const isAllowedFile = (path: string): boolean => {
     lower.includes('dist/') ||
     lower.includes('.next/') ||
     lower.includes('build/') ||
+    lower.includes('.cache/') ||
+    lower.includes('coverage/') ||
     lower.endsWith('.png') ||
     lower.endsWith('.jpg') ||
     lower.endsWith('.jpeg') ||
@@ -78,7 +116,10 @@ const isAllowedFile = (path: string): boolean => {
     lower.endsWith('.zip') ||
     lower.endsWith('.woff') ||
     lower.endsWith('.woff2') ||
-    lower.endsWith('.ttf')
+    lower.endsWith('.ttf') ||
+    lower.endsWith('.mp3') ||
+    lower.endsWith('.mp4') ||
+    lower.endsWith('.lock')
   ) {
     return false;
   }
@@ -88,45 +129,69 @@ const isAllowedFile = (path: string): boolean => {
 export const cloneGitHubRepository = async (
   repoInfo: GitHubRepoInfo,
   onProgress?: (msg: string) => void
-): Promise<{ files: File[]; folders: Folder[] }> => {
+): Promise<ClonedRepoResult> => {
   const { owner, repo, branch = 'main', subpath = '' } = repoInfo;
+  const remoteUrl = `https://github.com/${owner}/${repo}`;
 
   onProgress?.(`Connecting to GitHub repository ${owner}/${repo}...`);
 
-  // First try fetching branch tree via GitHub REST Git Trees API
+  // Try fetching repo info to resolve default branch & description
+  let defaultBranch = branch || 'main';
+  let repoDesc = '';
+  try {
+    const metaRes = await fetch(`https://api.github.com/repos/${owner}/${repo}`, {
+      headers: { 'Accept': 'application/vnd.github.v3+json' }
+    });
+    if (metaRes.ok) {
+      const meta = await metaRes.json();
+      defaultBranch = meta.default_branch || defaultBranch;
+      repoDesc = meta.description || '';
+    }
+  } catch {
+    // Non-fatal, fallback to specified branch
+  }
+
+  let activeBranch = branch && branch !== 'main' ? branch : defaultBranch;
   let treeData: any = null;
-  let activeBranch = branch;
 
   try {
-    const res = await fetch(`https://api.github.com/repos/${owner}/${repo}/git/trees/${activeBranch}?recursive=1`, {
+    onProgress?.(`Querying Git tree on branch '${activeBranch}'...`);
+    let res = await fetch(`https://api.github.com/repos/${owner}/${repo}/git/trees/${activeBranch}?recursive=1`, {
       headers: {
         'Accept': 'application/vnd.github.v3+json'
       }
     });
 
-    if (res.status === 404 && activeBranch === 'main') {
-      // Fallback to master branch
+    if (res.status === 404 && activeBranch !== 'master') {
+      // Fallback to master
       activeBranch = 'master';
-      const masterRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/git/trees/master?recursive=1`, {
+      res = await fetch(`https://api.github.com/repos/${owner}/${repo}/git/trees/master?recursive=1`, {
         headers: { 'Accept': 'application/vnd.github.v3+json' }
       });
-      if (masterRes.ok) {
-        treeData = await masterRes.json();
-      }
-    } else if (res.ok) {
+    }
+
+    if (res.status === 404 && activeBranch !== 'main') {
+      // Fallback to main
+      activeBranch = 'main';
+      res = await fetch(`https://api.github.com/repos/${owner}/${repo}/git/trees/main?recursive=1`, {
+        headers: { 'Accept': 'application/vnd.github.v3+json' }
+      });
+    }
+
+    if (res.ok) {
       treeData = await res.json();
     } else if (res.status === 403) {
-      throw new Error('GitHub API rate limit reached. Please try again in a few minutes or choose a starter template.');
+      throw new Error('GitHub API rate limit reached. Please wait a moment or try one of the starter templates.');
     } else {
-      throw new Error(`GitHub repo not found (${res.status}). Ensure the repository is public.`);
+      throw new Error(`Repository not found (${res.status}). Verify that the repository is public and spelled correctly.`);
     }
   } catch (err: any) {
     if (err.message) throw err;
-    throw new Error('Failed to connect to GitHub. Please check repository URL.');
+    throw new Error('Failed to connect to GitHub. Please check your network or repository URL.');
   }
 
   if (!treeData || !Array.isArray(treeData.tree)) {
-    throw new Error('Unable to read repository file structure.');
+    throw new Error('Unable to parse repository tree structure.');
   }
 
   const rawItems = treeData.tree.filter((item: any) => {
@@ -134,15 +199,15 @@ export const cloneGitHubRepository = async (
     return isAllowedFile(item.path);
   });
 
-  // Limit to reasonable number of files for in-browser playground (max 35 files)
-  const candidateBlobs = rawItems.filter((item: any) => item.type === 'blob').slice(0, 30);
+  // Limit to reasonable number of code files (up to 35 files)
+  const candidateBlobs = rawItems.filter((item: any) => item.type === 'blob').slice(0, 35);
   const candidateTrees = rawItems.filter((item: any) => item.type === 'tree');
 
   if (candidateBlobs.length === 0) {
     throw new Error('No compatible code files (.js, .ts, .html, .css, .json) found in this repository.');
   }
 
-  onProgress?.(`Found ${candidateBlobs.length} source files. Downloading contents...`);
+  onProgress?.(`Discovered ${candidateBlobs.length} source files. Downloading file blobs...`);
 
   // Build Folder hierarchy
   const folderMap = new Map<string, string>(); // path -> folderId
@@ -170,7 +235,7 @@ export const cloneGitHubRepository = async (
     });
   });
 
-  // Fetch file contents in parallel (batches of 5)
+  // Fetch file contents in parallel (batches of 6)
   const createdFiles: File[] = [];
   const batchSize = 6;
 
@@ -208,9 +273,22 @@ export const cloneGitHubRepository = async (
     throw new Error('Could not download file contents from GitHub.');
   }
 
+  onProgress?.(`Initializing local Git repository for ${owner}/${repo}...`);
+
+  const commitHash = treeData.sha ? treeData.sha.substring(0, 7) : Math.random().toString(16).substring(2, 9);
+
   return {
     files: createdFiles,
-    folders: createdFolders
+    folders: createdFolders,
+    gitInfo: {
+      remoteUrl,
+      owner,
+      repo,
+      branch: activeBranch,
+      defaultBranch,
+      commitHash,
+      description: repoDesc
+    }
   };
 };
 

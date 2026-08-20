@@ -156,6 +156,15 @@ export const useStore = create<AppState>()(
         summary: null,
       },
       isTesting: false,
+      gitState: {
+        initialized: false,
+        remoteUrl: null,
+        owner: null,
+        repo: null,
+        branch: 'main',
+        staged: [],
+        commits: [],
+      },
       isCommandPaletteOpen: false,
       isGitModalOpen: false,
       isExportModalOpen: false,
@@ -163,6 +172,38 @@ export const useStore = create<AppState>()(
 
       setFiles: (files) => set({ files }),
       setFolders: (folders) => set({ folders }),
+      setGitState: (gitState) => {
+        try {
+          localStorage.setItem('js-playground-git-state', JSON.stringify(gitState));
+        } catch {}
+        set({ gitState });
+      },
+      initializeGit: (remoteUrl, branch = 'main', owner, repo) => {
+        const state = get();
+        const initialCommit = {
+          hash: Math.random().toString(16).substring(2, 9),
+          message: remoteUrl ? `Initial commit from ${remoteUrl}` : 'Initial commit',
+          author: owner ? `${owner} <${owner}@github.com>` : 'developer <dev@local>',
+          timestamp: Date.now(),
+          files: state.files.map(f => ({ name: f.name, content: f.content }))
+        };
+
+        const newGitState = {
+          initialized: true,
+          remoteUrl: remoteUrl || null,
+          owner: owner || null,
+          repo: repo || null,
+          branch,
+          staged: [],
+          commits: [initialCommit]
+        };
+
+        try {
+          localStorage.setItem('js-playground-git-state', JSON.stringify(newGitState));
+        } catch {}
+
+        set({ gitState: newGitState });
+      },
       updateFileContent: (id, content) =>
         set((state) => {
           const savedContent = state.savedFileContents[id] ?? '';
@@ -491,7 +532,7 @@ describe('Exception handling', () => {
         });
       },
 
-      loadClonedWorkspace: (importedFiles: File[], importedFolders: Folder[]) => {
+      loadClonedWorkspace: (importedFiles: File[], importedFolders: Folder[], gitInfo?: { remoteUrl: string; owner: string; repo: string; branch: string }) => {
         if (!importedFiles || importedFiles.length === 0) return;
 
         const savedContents: Record<string, string> = {};
@@ -499,7 +540,44 @@ describe('Exception handling', () => {
           savedContents[f.id] = f.content;
         });
 
-        const activeId = importedFiles.find(f => f.name === 'index.js' || f.name === 'main.js' || f.name.endsWith('.js'))?.id || importedFiles[0]?.id || '';
+        // Find primary entrypoint
+        const activeId = 
+          importedFiles.find(f => f.name === 'index.js' || f.name === 'index.ts' || f.name === 'main.js' || f.name === 'app.js' || f.name === 'index.html')?.id || 
+          importedFiles.find(f => f.name.endsWith('.js') || f.name.endsWith('.ts'))?.id || 
+          importedFiles[0]?.id || 
+          '';
+
+        const initialCommit = {
+          hash: Math.random().toString(16).substring(2, 9),
+          message: gitInfo ? `Clone repository from ${gitInfo.remoteUrl}` : 'Initial commit',
+          author: gitInfo ? `${gitInfo.owner} <${gitInfo.owner}@github.com>` : 'developer <dev@local>',
+          timestamp: Date.now(),
+          files: importedFiles.map(f => ({ name: f.name, content: f.content }))
+        };
+
+        const newGitState = {
+          initialized: true,
+          remoteUrl: gitInfo?.remoteUrl || null,
+          owner: gitInfo?.owner || null,
+          repo: gitInfo?.repo || null,
+          branch: gitInfo?.branch || 'main',
+          staged: [],
+          commits: [initialCommit]
+        };
+
+        try {
+          localStorage.setItem('js-playground-git-state', JSON.stringify(newGitState));
+        } catch {}
+
+        const successLogs = [
+          {
+            type: 'output' as const,
+            content: gitInfo 
+              ? `\u001b[32m✔\u001b[0m Cloned repository \u001b[34m${gitInfo.owner}/${gitInfo.repo}\u001b[0m (${gitInfo.branch})\nInitial Git state created at HEAD -> ${initialCommit.hash}\n${importedFiles.length} files and ${importedFolders.length} folders populated into workspace file tree.`
+              : `\u001b[32m✔\u001b[0m Workspace initialized with ${importedFiles.length} files and ${importedFolders.length} folders.`,
+            timestamp: Date.now()
+          }
+        ];
 
         set({
           files: importedFiles,
@@ -507,8 +585,9 @@ describe('Exception handling', () => {
           activeFileId: activeId,
           dirtyFileIds: {},
           savedFileContents: savedContents,
+          gitState: newGitState,
           logs: [],
-          terminalLogs: [],
+          terminalLogs: successLogs,
           testResults: { suites: [], summary: null },
           activeView: 'editor'
         });
@@ -554,6 +633,7 @@ describe('Exception handling', () => {
         minimap: state.minimap,
         themePreset: state.themePreset,
         autoFormat: state.autoFormat,
+        gitState: state.gitState,
       }),
     }
   )

@@ -3,6 +3,7 @@ import { useStore } from '@/store/useStore';
 import { Terminal as TerminalIcon, X, ChevronRight, Trash2 } from 'lucide-react';
 import { Button } from '@/components/shadcn-ui/button';
 import { ScrollArea } from '@/components/shadcn-ui/scroll-area';
+import { parseGitHubUrl, cloneGitHubRepository } from '@/lib/gitService';
 
 const renderJavaScriptLine = (line: string, key: string | number) => {
   if (!line.trim()) {
@@ -146,8 +147,21 @@ const renderFormattedLine = (line: string, lineKey: string | number, language?: 
 };
 
 export const SimulatedTerminal: React.FC = () => {
-  const { files, folders, terminalLogs, addTerminalLog, clearTerminalLogs, addFolder, addFile, activeFileId } = useStore();
+  const { 
+    files, 
+    folders, 
+    terminalLogs, 
+    addTerminalLog, 
+    clearTerminalLogs, 
+    addFolder, 
+    addFile, 
+    activeFileId,
+    gitState,
+    setGitState,
+    loadClonedWorkspace 
+  } = useStore();
   const [input, setInput] = useState('');
+  const [isExecuting, setIsExecuting] = useState(false);
   const [history, setHistory] = useState<string[]>(() => {
     try {
       const saved = localStorage.getItem('js-playground-term-history');
@@ -158,24 +172,6 @@ export const SimulatedTerminal: React.FC = () => {
   });
   const [historyIndex, setHistoryIndex] = useState<number>(-1);
   const [tempInput, setTempInput] = useState<string>('');
-  
-  const [gitState, setGitState] = useState<{
-    initialized: boolean;
-    branch: string;
-    staged: string[];
-    commits: { hash: string; message: string; timestamp: number; files: { name: string; content: string }[] }[];
-  }>(() => {
-    try {
-      const saved = localStorage.getItem('js-playground-git-state');
-      if (saved) return JSON.parse(saved);
-    } catch {}
-    return {
-      initialized: false,
-      branch: 'main',
-      staged: [],
-      commits: []
-    };
-  });
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -189,14 +185,6 @@ export const SimulatedTerminal: React.FC = () => {
   }, [history]);
 
   useEffect(() => {
-    try {
-      localStorage.setItem('js-playground-git-state', JSON.stringify(gitState));
-    } catch (e) {
-      console.error(e);
-    }
-  }, [gitState]);
-
-  useEffect(() => {
     if (scrollRef.current) {
       const scrollContainer = scrollRef.current.querySelector('[data-radix-scroll-area-viewport]');
       if (scrollContainer) {
@@ -205,7 +193,7 @@ export const SimulatedTerminal: React.FC = () => {
     }
   }, [terminalLogs]);
 
-  const executeSingleCommand = (trimmedSub: string): boolean => {
+  const executeSingleCommand = async (trimmedSub: string): Promise<boolean> => {
     const args = trimmedSub.split(/\s+/).filter(Boolean);
     if (args.length === 0) return true;
     const command = args[0].toLowerCase();
@@ -214,7 +202,7 @@ export const SimulatedTerminal: React.FC = () => {
       case 'help':
         addTerminalLog({ 
           type: 'output', 
-          content: 'Available commands:\n  ls       - List files and folders with types and sizes\n  cat      - View file content with syntax highlighting\n  touch    - Create an empty file (e.g. touch test.js)\n  mkdir    - Create a new folder\n  node     - Run a JavaScript file (e.g. node index.js)\n  npm      - Run npm commands (e.g. npm start, npm run dev)\n  git      - Simulate Git operations (init, status, add, commit, log)\n  history  - Display shell command history\n  clear    - Clear terminal logs\n  help     - Show this help message\n  whoami   - Show current user\n  date     - Show system time' 
+          content: 'Available commands:\n  ls         - List files and folders with types and sizes\n  cat        - View file content with syntax highlighting\n  touch      - Create an empty file (e.g. touch test.js)\n  mkdir      - Create a new folder\n  node       - Run a JavaScript file (e.g. node index.js)\n  npm        - Run npm commands (e.g. npm start, npm test)\n  git clone  - Clone a GitHub repo (e.g. git clone lodash/lodash)\n  git status - Show current working tree and staged status\n  git add    - Stage files (e.g. git add . or git add index.js)\n  git commit - Record changes (e.g. git commit -m "update")\n  git log    - Show commit history and hashes\n  history    - Display shell command history\n  clear      - Clear terminal logs\n  whoami     - Show current user\n  date       - Show system time' 
         });
         return true;
       case 'ls': {
@@ -301,29 +289,118 @@ export const SimulatedTerminal: React.FC = () => {
         if (args.length < 2) {
           addTerminalLog({ 
             type: 'output', 
-            content: 'Usage: git <subcommand> [<args>]\n\nSupported git commands:\n  init       - Initialize a simulated git repository\n  status     - Show working tree status\n  add        - Stage files to be committed\n  commit     - Record changes to the repository\n  log        - Show commit history' 
+            content: 'Usage: git <subcommand> [<args>]\n\nSupported git commands:\n  clone <repo>  - Clone a repository from GitHub and populate workspace\n  init          - Initialize a local git repository\n  status        - Show working tree and staging status\n  add <file|.>  - Stage changes to be committed\n  commit -m ""  - Record changes with a message\n  log           - Show commit history\n  branch        - Show current active branch\n  remote -v     - List remote repository URLs' 
           });
           return false;
         }
 
         const sub = args[1].toLowerCase();
+
+        if (sub === 'clone') {
+          if (args.length < 3) {
+            addTerminalLog({ 
+              type: 'output', 
+              content: 'fatal: You must specify a repository to clone.\nUsage: git clone <repository-url> [<branch>]\nExample: git clone https://github.com/lodash/lodash' 
+            });
+            return false;
+          }
+
+          const repoTarget = args[2];
+          const branchOverride = args[3];
+          const parsed = parseGitHubUrl(repoTarget);
+
+          if (!parsed) {
+            addTerminalLog({ 
+              type: 'output', 
+              content: `fatal: repository '${repoTarget}' does not exist or URL is invalid.\nExample: git clone https://github.com/tastejs/todomvc` 
+            });
+            return false;
+          }
+
+          addTerminalLog({ 
+            type: 'output', 
+            content: `Cloning into '${parsed.repo}'...\nConnecting to GitHub (${parsed.owner}/${parsed.repo})...` 
+          });
+
+          try {
+            const targetBranch = branchOverride || parsed.branch || 'main';
+            const result = await cloneGitHubRepository({
+              owner: parsed.owner,
+              repo: parsed.repo,
+              branch: targetBranch,
+              subpath: parsed.subpath
+            }, (status) => {
+              addTerminalLog({ type: 'output', content: `remote: ${status}` });
+            });
+
+            loadClonedWorkspace(result.files, result.folders, result.gitInfo);
+
+            addTerminalLog({
+              type: 'output',
+              content: `remote: Compressing objects: 100% (${result.files.length}/${result.files.length}), done.\nremote: Total ${result.files.length} files and ${result.folders.length} directories extracted.\n\u001b[32m✔ Successfully cloned ${result.gitInfo.owner}/${result.gitInfo.repo} (${result.gitInfo.branch})\u001b[0m\nHEAD is now at \u001b[33m${result.gitInfo.commitHash}\u001b[0m ${result.gitInfo.description || 'Initial repository clone'}`
+            });
+            return true;
+          } catch (err: any) {
+            addTerminalLog({ 
+              type: 'output', 
+              content: `fatal: ${err.message || 'Clone failed.'}` 
+            });
+            return false;
+          }
+        }
+
         if (sub === 'init') {
           if (gitState.initialized) {
             addTerminalLog({ type: 'output', content: 'Reinitialized existing Git repository in /workspace/.git/' });
             return true;
           } else {
-            setGitState(prev => ({ ...prev, initialized: true }));
-            addTerminalLog({ type: 'output', content: 'Initialized empty Git repository in /workspace/.git/' });
+            const newCommit = {
+              hash: Math.random().toString(16).substring(2, 9),
+              message: 'Initial commit',
+              author: 'developer <dev@local>',
+              timestamp: Date.now(),
+              files: files.map(f => ({ name: f.name, content: f.content }))
+            };
+            setGitState({
+              initialized: true,
+              remoteUrl: null,
+              owner: null,
+              repo: null,
+              branch: 'main',
+              staged: [],
+              commits: [newCommit]
+            });
+            addTerminalLog({ type: 'output', content: 'Initialized empty Git repository in /workspace/.git/\n[main (root-commit) ' + newCommit.hash + '] Initial commit' });
             return true;
           }
         }
 
         if (!gitState.initialized) {
-          addTerminalLog({ type: 'output', content: 'fatal: not a git repository (or any of the parent directories): .git' });
+          addTerminalLog({ type: 'output', content: 'fatal: not a git repository (or any of the parent directories): .git\nRun `git init` or `git clone <url>` to begin tracking.' });
           return false;
         }
 
         switch (sub) {
+          case 'branch': {
+            addTerminalLog({ type: 'output', content: `* \u001b[32m${gitState.branch}\u001b[0m` });
+            return true;
+          }
+          case 'remote': {
+            const isVerbose = args.includes('-v') || args.includes('--verbose');
+            if (gitState.remoteUrl) {
+              if (isVerbose) {
+                addTerminalLog({ 
+                  type: 'output', 
+                  content: `origin\t${gitState.remoteUrl} (fetch)\norigin\t${gitState.remoteUrl} (push)` 
+                });
+              } else {
+                addTerminalLog({ type: 'output', content: 'origin' });
+              }
+            } else {
+              addTerminalLog({ type: 'output', content: isVerbose ? 'No remotes configured.' : '' });
+            }
+            return true;
+          }
           case 'status': {
             const staged = gitState.staged;
             const lastCommit = gitState.commits[gitState.commits.length - 1];
@@ -338,6 +415,9 @@ export const SimulatedTerminal: React.FC = () => {
             });
 
             let lines = [`On branch ${gitState.branch}`];
+            if (gitState.remoteUrl) {
+              lines.push(`Your branch is up to date with 'origin/${gitState.branch}'.`);
+            }
             if (gitState.commits.length === 0) {
               lines.push('No commits yet\n');
             } else {
@@ -386,13 +466,13 @@ export const SimulatedTerminal: React.FC = () => {
               return false;
             }
             const target = args[2];
-            if (target === '.') {
+            if (target === '.' || target === '-A') {
               const allNames = files.map(f => f.name);
-              setGitState(prev => ({
-                ...prev,
-                staged: Array.from(new Set([...prev.staged, ...allNames]))
-              }));
-              addTerminalLog({ type: 'output', content: `Staged all ${allNames.length} files.` });
+              setGitState({
+                ...gitState,
+                staged: Array.from(new Set([...gitState.staged, ...allNames]))
+              });
+              addTerminalLog({ type: 'output', content: `Staged all ${allNames.length} workspace files.` });
               return true;
             } else {
               const matched = files.find(f => f.name === target);
@@ -400,10 +480,10 @@ export const SimulatedTerminal: React.FC = () => {
                 addTerminalLog({ type: 'output', content: `fatal: pathspec '${target}' did not match any files` });
                 return false;
               }
-              setGitState(prev => ({
-                ...prev,
-                staged: Array.from(new Set([...prev.staged, target]))
-              }));
+              setGitState({
+                ...gitState,
+                staged: Array.from(new Set([...gitState.staged, target]))
+              });
               addTerminalLog({ type: 'output', content: `Staged '${target}'.` });
               return true;
             }
@@ -422,7 +502,7 @@ export const SimulatedTerminal: React.FC = () => {
             }
 
             if (gitState.staged.length === 0) {
-              addTerminalLog({ type: 'output', content: 'On branch main\nnothing to commit, working tree clean' });
+              addTerminalLog({ type: 'output', content: `On branch ${gitState.branch}\nnothing to commit, working tree clean` });
               return true;
             }
 
@@ -432,32 +512,33 @@ export const SimulatedTerminal: React.FC = () => {
             const newCommit = {
               hash,
               message,
+              author: gitState.owner ? `${gitState.owner} <${gitState.owner}@github.com>` : 'developer <dev@local>',
               timestamp: Date.now(),
               files: committedFiles
             };
 
             const stagedCount = gitState.staged.length;
 
-            setGitState(prev => ({
-              ...prev,
+            setGitState({
+              ...gitState,
               staged: [],
-              commits: [...prev.commits, newCommit]
-            }));
+              commits: [...gitState.commits, newCommit]
+            });
 
             addTerminalLog({ 
               type: 'output', 
-              content: `[main ${hash}] ${message}\n ${stagedCount} files changed\n create mode 100644 ${gitState.staged.join(', ')}` 
+              content: `[${gitState.branch} ${hash}] ${message}\n ${stagedCount} files changed\n create mode 100644 ${gitState.staged.join(', ')}` 
             });
             return true;
           }
           case 'log': {
             if (gitState.commits.length === 0) {
-              addTerminalLog({ type: 'output', content: "fatal: your current branch 'main' does not have any commits yet" });
+              addTerminalLog({ type: 'output', content: `fatal: your current branch '${gitState.branch}' does not have any commits yet` });
               return false;
             }
 
             const logs = gitState.commits.slice().reverse().map(c => {
-              return `commit ${c.hash} (HEAD -> ${gitState.branch})\nAuthor: git-admin <admin@playground>\nDate:   ${new Date(c.timestamp).toUTCString()}\n\n    ${c.message}\n`;
+              return `\u001b[33mcommit ${c.hash}\u001b[0m (HEAD -> \u001b[32m${gitState.branch}\u001b[0m)\nAuthor: ${c.author || 'developer <dev@local>'}\nDate:   ${new Date(c.timestamp).toUTCString()}\n\n    ${c.message}\n`;
             }).join('\n');
 
             addTerminalLog({ type: 'output', content: logs });
@@ -585,10 +666,11 @@ export const SimulatedTerminal: React.FC = () => {
     }
   };
 
-  const handleCommand = (cmd: string) => {
+  const handleCommand = async (cmd: string) => {
     const trimmed = cmd.trim();
-    if (!trimmed) return;
+    if (!trimmed || isExecuting) return;
 
+    setIsExecuting(true);
     addTerminalLog({ type: 'input', content: trimmed });
 
     setHistory(prev => {
@@ -598,13 +680,20 @@ export const SimulatedTerminal: React.FC = () => {
     setHistoryIndex(-1);
     setTempInput('');
 
-    // Sequential operator && implementation
-    const subCommands = trimmed.split('&&').map(c => c.trim()).filter(Boolean);
-    for (const sub of subCommands) {
-      const success = executeSingleCommand(sub);
-      if (!success) {
-        break;
+    try {
+      // Sequential operator && implementation
+      const subCommands = trimmed.split('&&').map(c => c.trim()).filter(Boolean);
+      for (const sub of subCommands) {
+        const success = await executeSingleCommand(sub);
+        if (!success) {
+          break;
+        }
       }
+    } finally {
+      setIsExecuting(false);
+      setTimeout(() => {
+        inputRef.current?.focus();
+      }, 50);
     }
   };
 

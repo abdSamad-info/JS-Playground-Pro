@@ -57,6 +57,24 @@ export interface TestSummary {
   timestamp: number;
 }
 
+export interface GitCommit {
+  hash: string;
+  message: string;
+  author: string;
+  timestamp: number;
+  files: { name: string; content: string }[];
+}
+
+export interface GitState {
+  initialized: boolean;
+  remoteUrl: string | null;
+  owner: string | null;
+  repo: string | null;
+  branch: string;
+  staged: string[];
+  commits: GitCommit[];
+}
+
 export type ThemePreset = 
   | 'vs-code' 
   | 'github-dark' 
@@ -106,6 +124,9 @@ export interface AppState {
   };
   isTesting: boolean;
 
+  // Local Git State
+  gitState: GitState;
+
   // Command Palette State
   isCommandPaletteOpen: boolean;
 
@@ -117,6 +138,8 @@ export interface AppState {
   // Actions
   setFiles: (files: File[]) => void;
   setFolders: (folders: Folder[]) => void;
+  setGitState: (gitState: GitState) => void;
+  initializeGit: (remoteUrl?: string, branch?: string, owner?: string, repo?: string) => void;
   updateFileContent: (id: string, content: string) => void;
   setActiveFileId: (id: string) => void;
   setActiveView: (view: ViewTab) => void;
@@ -162,7 +185,11 @@ export interface AppState {
   runTests: (targetFileId?: string) => Promise<void>;
   createSampleTestFile: () => void;
   loadStarterTemplate: (templateId: string) => void;
-  loadClonedWorkspace: (files: File[], folders: Folder[]) => void;
+  loadClonedWorkspace: (
+    files: File[], 
+    folders: Folder[], 
+    gitInfo?: { remoteUrl: string; owner: string; repo: string; branch: string }
+  ) => void;
   setSharedState: (state: Partial<AppState>) => void;
   resetToDefault: () => void;
 }

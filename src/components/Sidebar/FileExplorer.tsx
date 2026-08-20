@@ -19,7 +19,9 @@ import {
   FilePlus2,
   FolderTree,
   X,
-  FileSpreadsheet
+  FileSpreadsheet,
+  GitBranch,
+  Github
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
@@ -62,7 +64,9 @@ export const FileExplorer: React.FC = () => {
     renameFile,
     renameFolder,
     moveFile,
-    moveFolder
+    moveFolder,
+    gitState,
+    setGitModalOpen
   } = useStore();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -533,12 +537,27 @@ export const FileExplorer: React.FC = () => {
             selectedFolderId === null ? "bg-[#333333] text-white" : "text-[#aaaaaa] hover:bg-[#2a2d2e] hover:text-white"
           )}
         >
-          <div className="flex items-center gap-1.5 truncate">
+          <div className="flex items-center gap-1.5 truncate max-w-[140px]">
             {isWorkspaceExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-            <span className="truncate text-[11px]">📁 WORKSPACE</span>
+            <span className="truncate text-[11px]">
+              {gitState.repo ? `📦 ${gitState.repo}` : '📁 WORKSPACE'}
+            </span>
           </div>
 
           <div className="flex items-center gap-1 text-[#888888]">
+            {gitState.initialized && (
+              <button
+                title={`Git Branch: ${gitState.branch} (${gitState.remoteUrl || 'Local'})`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setGitModalOpen(true);
+                }}
+                className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-[#1e1e1e] hover:bg-[#2a2d2e] text-[10px] text-emerald-400 font-mono lowercase border border-[#444]"
+              >
+                <GitBranch size={10} />
+                <span className="truncate max-w-[50px]">{gitState.branch}</span>
+              </button>
+            )}
             <button
               title="Add File to Root"
               onClick={(e) => {
