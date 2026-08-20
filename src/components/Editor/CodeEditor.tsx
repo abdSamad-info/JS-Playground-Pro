@@ -16,6 +16,7 @@ export const CodeEditor: React.FC = () => {
     files, 
     activeFileId, 
     updateFileContent, 
+    dirtyFileIds,
     theme, 
     fontSize, 
     fontFamily,
@@ -30,14 +31,14 @@ export const CodeEditor: React.FC = () => {
     setIsSaving
   } = useStore();
   
-  const [showSaved, setShowSaved] = React.useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [activeCategory, setActiveCategory] = useState<string>('Symbols');
   const activeFile = files.find(f => f.id === activeFileId);
+  const isDirty = Boolean(activeFile && dirtyFileIds[activeFile.id]);
+
   const editorRef = useRef<any>(null);
   const monacoRef = useRef<any>(null);
-  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const savedFadeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
   const formatTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
@@ -275,37 +276,27 @@ export const CodeEditor: React.FC = () => {
 
   const handleEditorChange = (value: string | undefined) => {
     if (value !== undefined) {
-      // Auto-save indicator logic (visual only at first)
-      setIsSaving(true);
-      setShowSaved(false);
-      
-      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
-      if (savedFadeTimeoutRef.current) clearTimeout(savedFadeTimeoutRef.current);
-      
-      // Debounce the actual state update (The "Save Interval")
-      saveTimeoutRef.current = setTimeout(() => {
-        updateFileContent(activeFileId, value);
-        setIsSaving(false);
-        setShowSaved(true);
-        savedFadeTimeoutRef.current = setTimeout(() => {
-          setShowSaved(false);
-        }, 2000);
-      }, 800); // 800ms debounce for saving
+      updateFileContent(activeFileId, value);
 
-      // Auto-format logic (after longer delay while typing)
+      // Delayed auto-save after 5 seconds of inactivity
+      if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+      autoSaveTimerRef.current = setTimeout(() => {
+        useStore.getState().saveFile(activeFileId);
+      }, 5000);
+
+      // Auto-format logic (after 4 seconds of inactivity if enabled)
       if (autoFormat) {
         if (formatTimeoutRef.current) clearTimeout(formatTimeoutRef.current);
         formatTimeoutRef.current = setTimeout(() => {
           handleFormat();
-        }, 3000); // 3 seconds of inactivity
+        }, 4000);
       }
     }
   };
 
   useEffect(() => {
     return () => {
-      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
-      if (savedFadeTimeoutRef.current) clearTimeout(savedFadeTimeoutRef.current);
+      if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
       if (formatTimeoutRef.current) clearTimeout(formatTimeoutRef.current);
     };
   }, []);
@@ -360,30 +351,14 @@ export const CodeEditor: React.FC = () => {
 
   return (
     <div className="h-full w-full overflow-hidden flex flex-col relative">
-      <AnimatePresence>
-        {isSaving && (
-          <motion.div 
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0 }}
-            className="absolute bottom-16 md:bottom-4 right-8 z-20 flex items-center gap-2 bg-[#252526] border border-[#454545] px-3 py-1.5 rounded-full shadow-lg pointer-events-none"
-          >
-            <CloudUpload size={14} className="text-[#007acc] animate-pulse" />
-            <span className="text-[11px] text-[#888]">Saving...</span>
-          </motion.div>
+      <div className="absolute bottom-16 md:bottom-3 right-6 z-20 pointer-events-none flex items-center gap-2">
+        {isDirty && (
+          <div className="flex items-center gap-1.5 bg-[#252526]/90 border border-amber-500/30 px-2.5 py-1 rounded-full shadow-md backdrop-blur-sm">
+            <span className="w-2 h-2 rounded-full bg-amber-400" />
+            <span className="text-[11px] text-amber-300 font-medium">Unsaved changes (Ctrl+S)</span>
+          </div>
         )}
-        {showSaved && !isSaving && (
-          <motion.div 
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.9 }}
-            className="absolute bottom-16 md:bottom-4 right-8 z-20 flex items-center gap-2 bg-[#252526]/80 border border-green-500/30 px-3 py-1.5 rounded-full pointer-events-none"
-          >
-            <Check size={14} className="text-green-500" />
-            <span className="text-[11px] text-[#888]">Saved</span>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      </div>
 
       <div className="flex-1 min-h-0">
         <Editor

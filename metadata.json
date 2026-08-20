@@ -2,5 +2,5 @@
   "name": "JS Playground Pro",
   "description": "A professional, modern online JavaScript code runner and playground with live preview, console output, and multi-tab support.",
   "requestFramePermissions": [],
-  "majorCapabilities": []
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

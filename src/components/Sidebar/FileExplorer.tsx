@@ -1,22 +1,27 @@
 import React, { useState } from 'react';
-import { useStore } from '@/store/useStore.ts';
+import { useStore } from '@/store/useStore';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   FileCode, 
   FileJson, 
   FileText, 
   Search, 
-  Layers, 
-  Settings, 
   Plus, 
   Trash2, 
   FolderPlus, 
-  Folder as FolderIcon, 
+  Folder as FolderIcon,
+  FolderOpen,
   ChevronRight, 
   ChevronDown,
-  Pencil
+  Pencil,
+  RotateCcw,
+  ChevronsDownUp,
+  FilePlus2,
+  FolderTree,
+  X,
+  FileSpreadsheet
 } from 'lucide-react';
-import { cn } from '@/lib/utils.ts';
+import { cn } from '@/lib/utils';
 import {
   Tooltip,
   TooltipContent,
@@ -28,7 +33,6 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
   DialogFooter,
 } from "@/components/shadcn-ui/dialog";
 import { Button } from "@/components/shadcn-ui/button";
@@ -50,28 +54,38 @@ export const FileExplorer: React.FC = () => {
     folders, 
     activeFileId, 
     setActiveFileId, 
+    dirtyFileIds,
     addFile, 
     addFolder, 
     deleteFile, 
     deleteFolder,
-    moveFile,
-    moveFolder,
     renameFile,
-    renameFolder
+    renameFolder,
+    moveFile,
+    moveFolder
   } = useStore();
+
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
+  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set(['root']));
+  const [isWorkspaceExpanded, setIsWorkspaceExpanded] = useState(true);
+
+  // Dialogs
   const [isNewFileDialogOpen, setIsNewFileDialogOpen] = useState(false);
   const [isNewFolderDialogOpen, setIsNewFolderDialogOpen] = useState(false);
   const [isRenameDialogOpen, setIsRenameDialogOpen] = useState(false);
-  const [itemToRename, setItemToRename] = useState<{ id: string; name: string; type: 'file' | 'folder' } | null>(null);
-  const [renameValue, setRenameValue] = useState('');
+  
   const [newFileName, setNewFileName] = useState('');
   const [newFolderName, setNewFolderName] = useState('');
   const [newFileType, setNewFileType] = useState<FileType>('javascript');
-  const [newFileParentId, setNewFileParentId] = useState<string>('root');
-  const [newFolderParentId, setNewFolderParentId] = useState<string>('root');
-  const [isExpanded, setIsExpanded] = useState(true);
-  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
-  const [dragOverTarget, setDragOverTarget] = useState<string | null>(null);
+  const [targetParentId, setTargetParentId] = useState<string>('root');
+  
+  const [itemToRename, setItemToRename] = useState<{ id: string; name: string; type: 'file' | 'folder' } | null>(null);
+  const [renameValue, setRenameValue] = useState('');
+
+  // Inline creation states (VS Code like)
+  const [inlineCreating, setInlineCreating] = useState<{ type: 'file' | 'folder'; parentId: string | null } | null>(null);
+  const [inlineName, setInlineName] = useState('');
 
   const toggleFolder = (id: string) => {
     const next = new Set(expandedFolders);
@@ -80,438 +94,712 @@ export const FileExplorer: React.FC = () => {
     setExpandedFolders(next);
   };
 
-  const getIcon = (lang: string) => {
-    switch (lang) {
-      case 'javascript': return <FileCode size={16} className="text-yellow-400" />;
-      case 'html': return <FileText size={16} className="text-orange-500" />;
-      case 'css': return <FileJson size={16} className="text-blue-400" />;
-      default: return <FileText size={16} />;
+  const collapseAllFolders = () => {
+    setExpandedFolders(new Set());
+  };
+
+  const expandAllFolders = () => {
+    const all = new Set(['root', ...folders.map(f => f.id)]);
+    setExpandedFolders(all);
+  };
+
+  const getFileIcon = (lang: string, name: string) => {
+    if (name.endsWith('.ts') || name.endsWith('.tsx') || lang === 'typescript') {
+      return <FileCode size={15} className="text-sky-400 shrink-0" />;
     }
+    if (name.endsWith('.json') || lang === 'json') {
+      return <FileJson size={15} className="text-amber-400 shrink-0" />;
+    }
+    if (name.endsWith('.html') || lang === 'html') {
+      return <FileText size={15} className="text-orange-500 shrink-0" />;
+    }
+    if (name.endsWith('.css') || lang === 'css') {
+      return <FileSpreadsheet size={15} className="text-cyan-400 shrink-0" />;
+    }
+    return <FileCode size={15} className="text-yellow-400 shrink-0" />;
+  };
+
+  const openCreateFileDialog = (parentId: string | null = null) => {
+    setTargetParentId(parentId ?? selectedFolderId ?? 'root');
+    setNewFileName('');
+    setNewFileType('javascript');
+    setIsNewFileDialogOpen(true);
+  };
+
+  const openCreateFolderDialog = (parentId: string | null = null) => {
+    setTargetParentId(parentId ?? selectedFolderId ?? 'root');
+    setNewFolderName('');
+    setIsNewFolderDialogOpen(true);
   };
 
   const handleCreateFile = () => {
     if (!newFileName.trim()) {
-      toast.error('File name cannot be empty', { duration: 2000 });
+      toast.error('File name cannot be empty');
       return;
     }
 
     let fileName = newFileName.trim();
-    if (newFileType === 'javascript' && !fileName.endsWith('.js')) fileName += '.js';
-    if (newFileType === 'html' && !fileName.endsWith('.html')) fileName += '.html';
-    if (newFileType === 'css' && !fileName.endsWith('.css')) fileName += '.css';
+    // Auto-append appropriate extension
+    if (newFileType === 'javascript' && !fileName.includes('.')) fileName += '.js';
+    else if (newFileType === 'typescript' && !fileName.includes('.')) fileName += '.ts';
+    else if (newFileType === 'html' && !fileName.includes('.')) fileName += '.html';
+    else if (newFileType === 'css' && !fileName.includes('.')) fileName += '.css';
+    else if (newFileType === 'json' && !fileName.includes('.')) fileName += '.json';
 
-    const parentId = newFileParentId === 'root' ? null : newFileParentId;
-    const success = addFile(fileName, newFileType, parentId);
-    
+    // Infer language from name if provided
+    let detectedLang = newFileType;
+    if (fileName.endsWith('.js')) detectedLang = 'javascript';
+    else if (fileName.endsWith('.ts') || fileName.endsWith('.tsx')) detectedLang = 'typescript';
+    else if (fileName.endsWith('.html')) detectedLang = 'html';
+    else if (fileName.endsWith('.css')) detectedLang = 'css';
+    else if (fileName.endsWith('.json')) detectedLang = 'json';
+
+    const parentId = targetParentId === 'root' ? null : targetParentId;
+    const success = addFile(fileName, detectedLang, parentId);
+
     if (success) {
-      setNewFileName('');
-      setNewFileParentId('root');
+      if (parentId) {
+        setExpandedFolders(prev => new Set(prev).add(parentId));
+      }
       setIsNewFileDialogOpen(false);
-      toast.success(`File ${fileName} created`, { duration: 2000 });
+      setNewFileName('');
+      toast.success(`Created ${fileName}`);
     } else {
-      toast.error(`File ${fileName} already exists in this folder`, { duration: 2000 });
+      toast.error(`A file named "${fileName}" already exists in this folder`);
     }
   };
 
   const handleCreateFolder = () => {
     if (!newFolderName.trim()) {
-      toast.error('Folder name cannot be empty', { duration: 2000 });
+      toast.error('Folder name cannot be empty');
       return;
     }
-    const parentId = newFolderParentId === 'root' ? null : newFolderParentId;
-    const success = addFolder(newFolderName.trim(), parentId);
-    
+    const folderName = newFolderName.trim();
+    const parentId = targetParentId === 'root' ? null : targetParentId;
+    const success = addFolder(folderName, parentId);
+
     if (success) {
-      setNewFolderName('');
-      setNewFolderParentId('root');
+      if (parentId) {
+        setExpandedFolders(prev => new Set(prev).add(parentId));
+      }
       setIsNewFolderDialogOpen(false);
-      toast.success(`Folder ${newFolderName} created`, { duration: 2000 });
+      setNewFolderName('');
+      toast.success(`Created folder ${folderName}`);
     } else {
-      toast.error(`Folder ${newFolderName} already exists in this folder`, { duration: 2000 });
+      toast.error(`A folder named "${folderName}" already exists in this location`);
     }
   };
 
-  const handleDeleteFile = (e: React.MouseEvent, id: string, name: string) => {
-    e.stopPropagation();
-    if (confirm(`Are you sure you want to delete ${name}?`)) {
-      deleteFile(id);
-      toast.success(`File ${name} deleted`);
-    }
-  };
-
-  const handleDeleteFolder = (e: React.MouseEvent, id: string, name: string) => {
-    e.stopPropagation();
-    if (confirm(`Are you sure you want to delete ${name} and all its contents?`)) {
-      deleteFolder(id);
-      toast.success(`Folder ${name} deleted`);
-    }
-  };
-
-  const handleRename = () => {
-    if (!itemToRename || !renameValue.trim()) {
-      toast.error('Name cannot be empty', { duration: 2000 });
+  const handleInlineSubmit = () => {
+    if (!inlineCreating || !inlineName.trim()) {
+      setInlineCreating(null);
       return;
     }
 
-    if (itemToRename.type === 'file') {
-      renameFile(itemToRename.id, renameValue.trim());
+    const name = inlineName.trim();
+    const parentId = inlineCreating.parentId;
+
+    if (inlineCreating.type === 'file') {
+      let lang: FileType = 'javascript';
+      if (name.endsWith('.ts') || name.endsWith('.tsx')) lang = 'typescript';
+      else if (name.endsWith('.html')) lang = 'html';
+      else if (name.endsWith('.css')) lang = 'css';
+      else if (name.endsWith('.json')) lang = 'json';
+
+      const success = addFile(name, lang, parentId);
+      if (success) {
+        if (parentId) setExpandedFolders(prev => new Set(prev).add(parentId));
+        toast.success(`Created ${name}`);
+      } else {
+        toast.error(`File "${name}" already exists`);
+      }
     } else {
-      renameFolder(itemToRename.id, renameValue.trim());
+      const success = addFolder(name, parentId);
+      if (success) {
+        if (parentId) setExpandedFolders(prev => new Set(prev).add(parentId));
+        toast.success(`Created folder ${name}`);
+      } else {
+        toast.error(`Folder "${name}" already exists`);
+      }
     }
 
-    toast.success('Renamed successfully', { duration: 2000 });
-    setIsRenameDialogOpen(false);
-    setItemToRename(null);
-    setRenameValue('');
+    setInlineCreating(null);
+    setInlineName('');
   };
 
-  const openRenameDialog = (e: React.MouseEvent, id: string, name: string, type: 'file' | 'folder') => {
+  const openRenameDialog = (id: string, currentName: string, type: 'file' | 'folder', e: React.MouseEvent) => {
     e.stopPropagation();
-    setItemToRename({ id, name, type });
-    setRenameValue(name);
+    setItemToRename({ id, name: currentName, type });
+    setRenameValue(currentName);
     setIsRenameDialogOpen(true);
   };
 
-  const onDragStart = (e: React.DragEvent, id: string, type: 'file' | 'folder') => {
-    e.dataTransfer.setData('sourceId', id);
-    e.dataTransfer.setData('sourceType', type);
-    e.dataTransfer.effectAllowed = 'move';
-  };
-
-  const onDragOver = (e: React.DragEvent, id: string | null) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-    if (dragOverTarget !== id) {
-      setDragOverTarget(id);
-    }
-  };
-
-  const onDragLeave = (e: React.DragEvent) => {
-    e.preventDefault();
-    // Only clear if we actually left the boundary (some nesting issues can happen)
-    // For simplicity, we can let it be, but let's try to clear on root or similar
-  };
-
-  const onDrop = (e: React.DragEvent, targetId: string | null) => {
-    e.preventDefault();
-    setDragOverTarget(null);
-    const sourceId = e.dataTransfer.getData('sourceId');
-    const sourceType = e.dataTransfer.getData('sourceType');
-
-    if (sourceId === targetId) return;
-
-    if (sourceType === 'file') {
-      moveFile(sourceId, targetId);
+  const handleRename = () => {
+    if (!itemToRename || !renameValue.trim()) return;
+    if (itemToRename.type === 'file') {
+      renameFile(itemToRename.id, renameValue.trim());
+      toast.success(`Renamed file to ${renameValue.trim()}`);
     } else {
-      moveFolder(sourceId, targetId);
+      renameFolder(itemToRename.id, renameValue.trim());
+      toast.success(`Renamed folder to ${renameValue.trim()}`);
     }
-    toast.success('Item moved', { duration: 2000 });
+    setIsRenameDialogOpen(false);
   };
 
-  const renderFile = (file: File, depth = 0) => (
-    <motion.div 
-      key={file.id} 
-      initial={{ opacity: 0, y: 5 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0 }}
-      className="w-full group relative"
-      draggable
-      onDragStart={(e) => onDragStart(e, file.id, 'file')}
-    >
-      <Tooltip>
-        <TooltipTrigger
-          onClick={() => setActiveFileId(file.id)}
-          className={cn(
-            "w-full flex items-center py-1 transition-all rounded px-2",
-            activeFileId === file.id 
-              ? "bg-[#37373d] text-white" 
-              : "text-[#858585] hover:text-white hover:bg-[#2a2d2e]",
-            !isExpanded && "justify-center"
-          )}
-          style={{ paddingLeft: isExpanded ? `${depth * 12 + 8}px` : '8px' }}
-        >
-          <div className="shrink-0">{getIcon(file.language)}</div>
-          {isExpanded && (
-            <span className="ml-2 text-[13px] truncate flex-1 text-left">
-              {file.name}
-            </span>
-          )}
-        </TooltipTrigger>
-        <TooltipContent side="right">{file.name}</TooltipContent>
-      </Tooltip>
-      {isExpanded && (
-        <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center opacity-0 group-hover:opacity-100 transition-opacity bg-[#2a2d2e] rounded pl-1">
-          <button
-            onClick={(e) => openRenameDialog(e, file.id, file.name, 'file')}
-            className="text-[#858585] hover:text-[#007acc] p-1"
-            title="Rename"
-          >
-            <Pencil size={12} />
-          </button>
-          <button
-            onClick={(e) => handleDeleteFile(e, file.id, file.name)}
-            className="text-[#858585] hover:text-red-400 p-1"
-            title="Delete"
-          >
-            <Trash2 size={12} />
-          </button>
-        </div>
-      )}
-    </motion.div>
-  );
+  const handleDeleteFile = (id: string, name: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (confirm(`Delete file "${name}" permanently?`)) {
+      deleteFile(id);
+      toast.success(`Deleted ${name}`);
+    }
+  };
 
-  const renderFolder = (folder: Folder, depth = 0) => {
-    const isOpen = expandedFolders.has(folder.id);
-    const folderFiles = files.filter(f => f.parentId === folder.id);
-    const childFolders = folders.filter(f => f.parentId === folder.id);
-    const isDragTarget = dragOverTarget === folder.id;
+  const handleDeleteFolder = (id: string, name: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (confirm(`Delete folder "${name}" and all contents inside?`)) {
+      deleteFolder(id);
+      toast.success(`Deleted folder ${name}`);
+    }
+  };
+
+  // Filter files by search
+  const filteredFiles = searchQuery 
+    ? files.filter(f => f.name.toLowerCase().includes(searchQuery.toLowerCase()))
+    : files;
+
+  // Render tree node recursively
+  const renderTree = (parentId: string | null, depth: number = 0) => {
+    const childFolders = folders.filter(f => f.parentId === parentId);
+    const childFiles = files.filter(f => f.parentId === parentId);
 
     return (
-      <motion.div 
-        key={folder.id} 
-        initial={{ opacity: 0, y: 5 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0 }}
-        className="w-full"
-        onDragOver={(e) => onDragOver(e, folder.id)}
-        onDrop={(e) => onDrop(e, folder.id)}
-        onDragLeave={() => dragOverTarget === folder.id && setDragOverTarget(null)}
-      >
-        <div 
-          className={cn(
-            "w-full group relative transition-colors",
-            isDragTarget && "bg-[#37373d]/50"
-          )}
-          draggable
-          onDragStart={(e) => onDragStart(e, folder.id, 'folder')}
-        >
-          <button
-            onClick={() => toggleFolder(folder.id)}
-            className={cn(
-              "w-full flex items-center py-1 text-[#858585] hover:text-white hover:bg-[#2a2d2e] transition-all rounded px-2",
-              !isExpanded && "justify-center"
-            )}
-            style={{ paddingLeft: isExpanded ? `${depth * 12 + 8}px` : '8px' }}
-          >
-            {isExpanded && (
-              <div className="shrink-0 mr-1">
-                {isOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+      <div className="space-y-0.5">
+        {/* Child Folders */}
+        {childFolders.map(folder => {
+          const isExpanded = expandedFolders.has(folder.id);
+          const isSelected = selectedFolderId === folder.id;
+
+          return (
+            <div key={folder.id} className="select-none">
+              <div 
+                onClick={() => {
+                  setSelectedFolderId(folder.id);
+                  toggleFolder(folder.id);
+                }}
+                style={{ paddingLeft: `${Math.max(depth * 12 + 10, 10)}px` }}
+                className={cn(
+                  "group flex items-center justify-between h-7 pr-2 text-xs rounded-sm cursor-pointer transition-colors relative",
+                  isSelected ? "bg-[#37373d] text-white" : "text-[#bbbbbb] hover:bg-[#2a2d2e] hover:text-white"
+                )}
+              >
+                <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                  <span className="text-[#888888] shrink-0">
+                    {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                  </span>
+                  <span className="text-amber-400 shrink-0">
+                    {isExpanded ? <FolderOpen size={15} /> : <FolderIcon size={15} />}
+                  </span>
+                  <span className="truncate font-medium text-[12px]">{folder.name}</span>
+                </div>
+
+                {/* Folder Hover Actions */}
+                <div className="hidden group-hover:flex items-center gap-1 shrink-0 text-[#888888]">
+                  <button
+                    title="New File Inside"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setExpandedFolders(prev => new Set(prev).add(folder.id));
+                      setInlineCreating({ type: 'file', parentId: folder.id });
+                      setInlineName('');
+                    }}
+                    className="p-1 hover:text-white hover:bg-[#454545] rounded"
+                  >
+                    <FilePlus2 size={12} />
+                  </button>
+
+                  <button
+                    title="New Folder Inside"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setExpandedFolders(prev => new Set(prev).add(folder.id));
+                      setInlineCreating({ type: 'folder', parentId: folder.id });
+                      setInlineName('');
+                    }}
+                    className="p-1 hover:text-white hover:bg-[#454545] rounded"
+                  >
+                    <FolderPlus size={12} />
+                  </button>
+
+                  <button
+                    title="Rename"
+                    onClick={(e) => openRenameDialog(folder.id, folder.name, 'folder', e)}
+                    className="p-1 hover:text-white hover:bg-[#454545] rounded"
+                  >
+                    <Pencil size={11} />
+                  </button>
+
+                  <button
+                    title="Delete"
+                    onClick={(e) => handleDeleteFolder(folder.id, folder.name, e)}
+                    className="p-1 hover:text-red-400 hover:bg-[#454545] rounded"
+                  >
+                    <Trash2 size={11} />
+                  </button>
+                </div>
               </div>
-            )}
-            <FolderIcon size={16} className="text-[#dcb67a] shrink-0" />
-            {isExpanded && (
-              <span className="ml-2 text-[13px] truncate flex-1 text-left font-medium">
-                {folder.name}
-              </span>
-            )}
-          </button>
-          {isExpanded && (
-            <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center opacity-0 group-hover:opacity-100 transition-opacity bg-[#2a2d2e] rounded pl-1">
-              <button
-                onClick={(e) => openRenameDialog(e, folder.id, folder.name, 'folder')}
-                className="text-[#858585] hover:text-[#007acc] p-1"
-                title="Rename"
-              >
-                <Pencil size={12} />
-              </button>
-              <button
-                onClick={(e) => handleDeleteFolder(e, folder.id, folder.name)}
-                className="text-[#858585] hover:text-red-400 p-1"
-                title="Delete"
-              >
-                <Trash2 size={12} />
-              </button>
+
+              {/* Nested Contents */}
+              {isExpanded && (
+                <div className="relative border-l border-[#3a3a3a] ml-4">
+                  {/* Inline creation inside folder */}
+                  {inlineCreating && inlineCreating.parentId === folder.id && (
+                    <div 
+                      style={{ paddingLeft: `${(depth + 1) * 12 + 10}px` }} 
+                      className="flex items-center gap-1.5 h-7 pr-2"
+                    >
+                      {inlineCreating.type === 'file' ? (
+                        <FileCode size={14} className="text-yellow-400 shrink-0" />
+                      ) : (
+                        <FolderIcon size={14} className="text-amber-400 shrink-0" />
+                      )}
+                      <input
+                        autoFocus
+                        type="text"
+                        value={inlineName}
+                        placeholder={inlineCreating.type === 'file' ? 'filename.js' : 'folder-name'}
+                        onChange={(e) => setInlineName(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') handleInlineSubmit();
+                          if (e.key === 'Escape') setInlineCreating(null);
+                        }}
+                        onBlur={handleInlineSubmit}
+                        className="bg-[#1e1e1e] border border-[#007acc] text-white text-[11px] h-5 px-1.5 rounded outline-none w-full"
+                      />
+                    </div>
+                  )}
+                  {renderTree(folder.id, depth + 1)}
+                </div>
+              )}
             </div>
-          )}
-        </div>
-        {isOpen && isExpanded && (
-          <div className="flex flex-col">
-            <AnimatePresence>
-              {childFolders.map(cf => renderFolder(cf, depth + 1))}
-              {folderFiles.map(f => renderFile(f, depth + 1))}
-            </AnimatePresence>
-          </div>
-        )}
-      </motion.div>
+          );
+        })}
+
+        {/* Child Files */}
+        {childFiles.map(file => {
+          const isActive = activeFileId === file.id;
+          const isDirty = Boolean(dirtyFileIds[file.id]);
+
+          return (
+            <div
+              key={file.id}
+              onClick={() => {
+                setActiveFileId(file.id);
+                setSelectedFolderId(file.parentId);
+              }}
+              style={{ paddingLeft: `${Math.max(depth * 12 + 22, 22)}px` }}
+              className={cn(
+                "group flex items-center justify-between h-7 pr-2 text-xs rounded-sm cursor-pointer transition-colors relative select-none",
+                isActive 
+                  ? "bg-[#37373d] text-white font-medium shadow-sm border-l-2 border-[#007acc]" 
+                  : "text-[#cccccc] hover:bg-[#2a2d2e] hover:text-white"
+              )}
+            >
+              <div className="flex items-center gap-2 min-w-0 flex-1">
+                {getFileIcon(file.language, file.name)}
+                <span className="truncate text-[12px]">{file.name}</span>
+                {isDirty && (
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" title="Unsaved changes" />
+                )}
+              </div>
+
+              {/* File Hover Actions */}
+              <div className="hidden group-hover:flex items-center gap-1 shrink-0 text-[#888888]">
+                <button
+                  title="Rename"
+                  onClick={(e) => openRenameDialog(file.id, file.name, 'file', e)}
+                  className="p-1 hover:text-white hover:bg-[#454545] rounded"
+                >
+                  <Pencil size={11} />
+                </button>
+
+                {files.length > 1 && (
+                  <button
+                    title="Delete"
+                    onClick={(e) => handleDeleteFile(file.id, file.name, e)}
+                    className="p-1 hover:text-red-400 hover:bg-[#454545] rounded"
+                  >
+                    <Trash2 size={11} />
+                  </button>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
     );
   };
 
   return (
-    <div className={cn(
-      "bg-[#252526] border-r border-[#454545] flex flex-col h-full shrink-0 transition-all duration-300",
-      isExpanded ? "w-64" : "w-12"
-    )}>
-      <div className="flex items-center justify-between px-3 h-[35px] bg-[#252526] border-b border-[#454545] shrink-0">
-        {isExpanded && <span className="text-[11px] uppercase tracking-wider font-bold text-[#888]">Explorer</span>}
-        <div className="flex items-center gap-1">
-          <Dialog open={isNewFileDialogOpen} onOpenChange={setIsNewFileDialogOpen}>
+    <div className="h-full w-full bg-[#252526] text-[#cccccc] flex flex-col select-none border-r border-[#3e3e42]">
+      {/* Top Header with VS Code Explorer Title & Actions */}
+      <div className="h-9 px-3 flex items-center justify-between border-b border-[#3e3e42] bg-[#2d2d2d] shrink-0">
+        <div className="flex items-center gap-1.5">
+          <FolderTree size={14} className="text-[#007acc]" />
+          <span className="text-[11px] font-bold text-[#bbbbbb] tracking-wider uppercase">
+            Explorer
+          </span>
+        </div>
+
+        {/* Global Explorer Quick Action Icons */}
+        <div className="flex items-center gap-0.5 text-[#aaaaaa]">
+          <TooltipProvider>
             <Tooltip>
-              <DialogTrigger asChild>
-                <button className="text-[#858585] hover:text-white p-1 rounded hover:bg-[#37373d]">
-                  <Plus size={16} />
+              <TooltipTrigger asChild>
+                <button
+                  onClick={() => {
+                    setInlineCreating({ type: 'file', parentId: selectedFolderId });
+                    setInlineName('');
+                  }}
+                  className="p-1 hover:text-white hover:bg-[#3e3e42] rounded transition-colors"
+                >
+                  <FilePlus2 size={14} />
                 </button>
-              </DialogTrigger>
+              </TooltipTrigger>
               <TooltipContent side="bottom">New File</TooltipContent>
             </Tooltip>
-            <DialogContent className="bg-[#252526] border-[#454545] text-white">
-              <DialogHeader>
-                <DialogTitle>Create New File</DialogTitle>
-              </DialogHeader>
-              <div className="grid gap-4 py-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="name">File Name</Label>
-                  <Input
-                    id="name"
-                    value={newFileName}
-                    onChange={(e) => setNewFileName(e.target.value)}
-                    placeholder="index.js"
-                    className="bg-[#1e1e1e] border-[#454545] text-white"
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="type">File Type</Label>
-                  <Select value={newFileType} onValueChange={(value: FileType) => setNewFileType(value)}>
-                    <SelectTrigger className="bg-[#1e1e1e] border-[#454545] text-white">
-                      <SelectValue placeholder="Select type" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-[#252526] border-[#454545] text-white">
-                      <SelectItem value="javascript">JavaScript</SelectItem>
-                      <SelectItem value="html">HTML</SelectItem>
-                      <SelectItem value="css">CSS</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="parent">Parent Folder</Label>
-                  <Select value={newFileParentId} onValueChange={setNewFileParentId}>
-                    <SelectTrigger className="bg-[#1e1e1e] border-[#454545] text-white">
-                      <SelectValue placeholder="Root" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-[#252526] border-[#454545] text-white">
-                      <SelectItem value="root">Root</SelectItem>
-                      {folders.map(f => (
-                        <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <DialogFooter>
-                <Button onClick={handleCreateFile} className="bg-[#007acc] hover:bg-[#007acc]/90">
-                  Create File
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
 
-          <Dialog open={isNewFolderDialogOpen} onOpenChange={setIsNewFolderDialogOpen}>
             <Tooltip>
-              <DialogTrigger asChild>
-                <button className="text-[#858585] hover:text-white p-1 rounded hover:bg-[#37373d]">
-                  <FolderPlus size={16} />
+              <TooltipTrigger asChild>
+                <button
+                  onClick={() => {
+                    setInlineCreating({ type: 'folder', parentId: selectedFolderId });
+                    setInlineName('');
+                  }}
+                  className="p-1 hover:text-white hover:bg-[#3e3e42] rounded transition-colors"
+                >
+                  <FolderPlus size={14} />
                 </button>
-              </DialogTrigger>
+              </TooltipTrigger>
               <TooltipContent side="bottom">New Folder</TooltipContent>
             </Tooltip>
-            <DialogContent className="bg-[#252526] border-[#454545] text-white">
-              <DialogHeader>
-                <DialogTitle>Create New Folder</DialogTitle>
-              </DialogHeader>
-              <div className="grid gap-4 py-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="folder-name">Folder Name</Label>
-                  <Input
-                    id="folder-name"
-                    value={newFolderName}
-                    onChange={(e) => setNewFolderName(e.target.value)}
-                    placeholder="components"
-                    className="bg-[#1e1e1e] border-[#454545] text-white"
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="folder-parent">Parent Folder</Label>
-                  <Select value={newFolderParentId} onValueChange={setNewFolderParentId}>
-                    <SelectTrigger className="bg-[#1e1e1e] border-[#454545] text-white">
-                      <SelectValue placeholder="Root" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-[#252526] border-[#454545] text-white">
-                      <SelectItem value="root">Root</SelectItem>
-                      {folders.map(f => (
-                        <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <DialogFooter>
-                <Button onClick={handleCreateFolder} className="bg-[#007acc] hover:bg-[#007acc]/90">
-                  Create Folder
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
 
-          <button 
-            onClick={() => setIsExpanded(!isExpanded)}
-            className="text-[#858585] hover:text-white p-1 rounded hover:bg-[#37373d]"
-          >
-            {isExpanded ? <ChevronRight className="rotate-180" size={16} /> : <Layers size={16} />}
-          </button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={collapseAllFolders}
+                  className="p-1 hover:text-white hover:bg-[#3e3e42] rounded transition-colors"
+                >
+                  <ChevronsDownUp size={14} />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">Collapse All</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </div>
       </div>
 
-      <div 
-        className={cn(
-          "flex-1 overflow-y-auto overflow-x-hidden py-2 transition-colors",
-          dragOverTarget === null && "bg-transparent",
-          dragOverTarget === 'root' && "bg-[#37373d]/20"
-        )}
-        onDragOver={(e) => onDragOver(e, 'root')}
-        onDrop={(e) => onDrop(e, null)}
-        onDragLeave={() => dragOverTarget === 'root' && setDragOverTarget(null)}
-      >
-        <AnimatePresence>
-          {folders.filter(f => !f.parentId).map(folder => renderFolder(folder))}
-          {files.filter(f => !f.parentId).map(file => renderFile(file))}
-        </AnimatePresence>
+      {/* Quick Search Filter */}
+      <div className="p-2 border-b border-[#333333]">
+        <div className="relative flex items-center">
+          <Search size={12} className="absolute left-2 text-[#777777] pointer-events-none" />
+          <input
+            type="text"
+            placeholder="Search files..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full bg-[#1e1e1e] border border-[#3e3e42] focus:border-[#007acc] rounded h-6 pl-6 pr-6 text-xs text-white placeholder-[#777777] outline-none"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery('')}
+              className="absolute right-1.5 text-[#777777] hover:text-white"
+            >
+              <X size={12} />
+            </button>
+          )}
+        </div>
       </div>
 
-      <Dialog open={isRenameDialogOpen} onOpenChange={setIsRenameDialogOpen}>
-        <DialogContent className="bg-[#252526] border-[#454545] text-white">
+      {/* Workspace Root Section */}
+      <div className="flex-1 overflow-y-auto overflow-x-hidden p-1 space-y-1">
+        {/* Workspace Root Banner */}
+        <div 
+          onClick={() => {
+            setSelectedFolderId(null);
+            setIsWorkspaceExpanded(!isWorkspaceExpanded);
+          }}
+          className={cn(
+            "flex items-center justify-between px-2 h-7 text-xs font-semibold uppercase tracking-wider rounded cursor-pointer transition-colors",
+            selectedFolderId === null ? "bg-[#333333] text-white" : "text-[#aaaaaa] hover:bg-[#2a2d2e] hover:text-white"
+          )}
+        >
+          <div className="flex items-center gap-1.5 truncate">
+            {isWorkspaceExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+            <span className="truncate text-[11px]">📁 WORKSPACE</span>
+          </div>
+
+          <div className="flex items-center gap-1 text-[#888888]">
+            <button
+              title="Add File to Root"
+              onClick={(e) => {
+                e.stopPropagation();
+                openCreateFileDialog('root');
+              }}
+              className="p-0.5 hover:text-white"
+            >
+              <Plus size={13} />
+            </button>
+            <button
+              title="Add Folder to Root"
+              onClick={(e) => {
+                e.stopPropagation();
+                openCreateFolderDialog('root');
+              }}
+              className="p-0.5 hover:text-white"
+            >
+              <FolderPlus size={13} />
+            </button>
+          </div>
+        </div>
+
+        {/* Tree Content */}
+        {isWorkspaceExpanded && (
+          <div className="space-y-0.5 pt-0.5">
+            {/* Inline creation at root */}
+            {inlineCreating && inlineCreating.parentId === null && (
+              <div className="flex items-center gap-1.5 h-7 px-4">
+                {inlineCreating.type === 'file' ? (
+                  <FileCode size={14} className="text-yellow-400 shrink-0" />
+                ) : (
+                  <FolderIcon size={14} className="text-amber-400 shrink-0" />
+                )}
+                <input
+                  autoFocus
+                  type="text"
+                  value={inlineName}
+                  placeholder={inlineCreating.type === 'file' ? 'filename.js' : 'folder-name'}
+                  onChange={(e) => setInlineName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleInlineSubmit();
+                    if (e.key === 'Escape') setInlineCreating(null);
+                  }}
+                  onBlur={handleInlineSubmit}
+                  className="bg-[#1e1e1e] border border-[#007acc] text-white text-[11px] h-5 px-1.5 rounded outline-none w-full"
+                />
+              </div>
+            )}
+
+            {searchQuery ? (
+              filteredFiles.length > 0 ? (
+                filteredFiles.map(file => (
+                  <div
+                    key={file.id}
+                    onClick={() => setActiveFileId(file.id)}
+                    className={cn(
+                      "flex items-center justify-between px-3 h-7 text-xs rounded cursor-pointer",
+                      activeFileId === file.id ? "bg-[#007acc]/20 text-white font-medium" : "text-[#cccccc] hover:bg-[#2a2d2e]"
+                    )}
+                  >
+                    <div className="flex items-center gap-2 truncate">
+                      {getFileIcon(file.language, file.name)}
+                      <span className="truncate text-xs">{file.name}</span>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="text-center py-6 text-xs text-[#777777]">
+                  No matching files found
+                </div>
+              )
+            ) : (
+              renderTree(null, 0)
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Footer Quick stats */}
+      <div className="h-7 px-3 bg-[#1e1e1e] border-t border-[#333333] flex items-center justify-between text-[10px] text-[#888888] shrink-0">
+        <span>{files.length} {files.length === 1 ? 'file' : 'files'}</span>
+        <span>{folders.length} {folders.length === 1 ? 'folder' : 'folders'}</span>
+      </div>
+
+      {/* New File Dialog */}
+      <Dialog open={isNewFileDialogOpen} onOpenChange={setIsNewFileDialogOpen}>
+        <DialogContent className="sm:max-w-[400px] bg-[#252526] border-[#454545] text-white">
           <DialogHeader>
-            <DialogTitle>Rename {itemToRename?.type === 'file' ? 'File' : 'Folder'}</DialogTitle>
+            <DialogTitle className="text-sm font-semibold flex items-center gap-2">
+              <FilePlus2 size={16} className="text-[#007acc]" />
+              Create New File
+            </DialogTitle>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="rename-input">New Name</Label>
+
+          <div className="space-y-3 py-2">
+            <div className="space-y-1">
+              <Label className="text-xs text-[#aaaaaa]">Destination Folder</Label>
+              <Select value={targetParentId} onValueChange={setTargetParentId}>
+                <SelectTrigger className="bg-[#1e1e1e] border-[#454545] text-xs text-white h-8">
+                  <SelectValue placeholder="Select folder" />
+                </SelectTrigger>
+                <SelectContent className="bg-[#252526] border-[#454545] text-white">
+                  <SelectItem value="root" className="text-xs font-semibold">📁 Root Workspace</SelectItem>
+                  {folders.map(f => (
+                    <SelectItem key={f.id} value={f.id} className="text-xs">
+                      📁 {f.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-xs text-[#aaaaaa]">File Name</Label>
               <Input
-                id="rename-input"
-                value={renameValue}
-                onChange={(e) => setRenameValue(e.target.value)}
-                className="bg-[#1e1e1e] border-[#454545] text-white"
                 autoFocus
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') handleRename();
-                }}
+                placeholder="e.g. app.js, helper.ts, styles.css"
+                value={newFileName}
+                onChange={(e) => setNewFileName(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') handleCreateFile(); }}
+                className="bg-[#1e1e1e] border-[#454545] text-xs text-white h-8"
               />
             </div>
+
+            <div className="space-y-1">
+              <Label className="text-xs text-[#aaaaaa]">Language Type</Label>
+              <Select value={newFileType} onValueChange={(val: any) => setNewFileType(val)}>
+                <SelectTrigger className="bg-[#1e1e1e] border-[#454545] text-xs text-white h-8">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-[#252526] border-[#454545] text-white">
+                  <SelectItem value="javascript" className="text-xs">JavaScript (.js)</SelectItem>
+                  <SelectItem value="typescript" className="text-xs">TypeScript (.ts)</SelectItem>
+                  <SelectItem value="html" className="text-xs">HTML (.html)</SelectItem>
+                  <SelectItem value="css" className="text-xs">CSS (.css)</SelectItem>
+                  <SelectItem value="json" className="text-xs">JSON (.json)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
-          <DialogFooter>
-            <Button onClick={handleRename} className="bg-[#007acc] hover:bg-[#007acc]/90">
-              Rename
+
+          <DialogFooter className="gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setIsNewFileDialogOpen(false)}
+              className="text-xs text-[#888888]"
+            >
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleCreateFile}
+              className="text-xs bg-[#007acc] hover:bg-[#007acc]/90 text-white"
+            >
+              Create File
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      <div className="mt-auto border-t border-[#454545] p-2 flex justify-center">
-        <Tooltip>
-          <TooltipTrigger className="text-[#858585] hover:text-white p-1 rounded hover:bg-[#37373d]">
-            <Settings size={18} />
-          </TooltipTrigger>
-          <TooltipContent side="right">Settings</TooltipContent>
-        </Tooltip>
-      </div>
+      {/* New Folder Dialog */}
+      <Dialog open={isNewFolderDialogOpen} onOpenChange={setIsNewFolderDialogOpen}>
+        <DialogContent className="sm:max-w-[400px] bg-[#252526] border-[#454545] text-white">
+          <DialogHeader>
+            <DialogTitle className="text-sm font-semibold flex items-center gap-2">
+              <FolderPlus size={16} className="text-amber-400" />
+              Create New Folder
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-3 py-2">
+            <div className="space-y-1">
+              <Label className="text-xs text-[#aaaaaa]">Parent Folder</Label>
+              <Select value={targetParentId} onValueChange={setTargetParentId}>
+                <SelectTrigger className="bg-[#1e1e1e] border-[#454545] text-xs text-white h-8">
+                  <SelectValue placeholder="Select parent" />
+                </SelectTrigger>
+                <SelectContent className="bg-[#252526] border-[#454545] text-white">
+                  <SelectItem value="root" className="text-xs font-semibold">📁 Root Workspace</SelectItem>
+                  {folders.map(f => (
+                    <SelectItem key={f.id} value={f.id} className="text-xs">
+                      📁 {f.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-xs text-[#aaaaaa]">Folder Name</Label>
+              <Input
+                autoFocus
+                placeholder="e.g. components, utils, styles"
+                value={newFolderName}
+                onChange={(e) => setNewFolderName(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') handleCreateFolder(); }}
+                className="bg-[#1e1e1e] border-[#454545] text-xs text-white h-8"
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setIsNewFolderDialogOpen(false)}
+              className="text-xs text-[#888888]"
+            >
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleCreateFolder}
+              className="text-xs bg-[#007acc] hover:bg-[#007acc]/90 text-white"
+            >
+              Create Folder
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Rename Dialog */}
+      <Dialog open={isRenameDialogOpen} onOpenChange={setIsRenameDialogOpen}>
+        <DialogContent className="sm:max-w-[400px] bg-[#252526] border-[#454545] text-white">
+          <DialogHeader>
+            <DialogTitle className="text-sm font-semibold">
+              Rename {itemToRename?.type === 'file' ? 'File' : 'Folder'}
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="py-2">
+            <Input
+              autoFocus
+              value={renameValue}
+              onChange={(e) => setRenameValue(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') handleRename(); }}
+              className="bg-[#1e1e1e] border-[#454545] text-xs text-white h-8"
+            />
+          </div>
+
+          <DialogFooter className="gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setIsRenameDialogOpen(false)}
+              className="text-xs text-[#888888]"
+            >
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleRename}
+              className="text-xs bg-[#007acc] hover:bg-[#007acc]/90 text-white"
+            >
+              Rename
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

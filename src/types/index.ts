@@ -1,4 +1,5 @@
 export type FileType = 'javascript' | 'html' | 'css' | 'json' | 'typescript';
+export type ViewTab = 'editor' | 'console' | 'terminal' | 'preview';
 
 export interface File {
   id: string;
@@ -25,6 +26,9 @@ export interface AppState {
   files: File[];
   folders: Folder[];
   activeFileId: string;
+  activeView: ViewTab;
+  dirtyFileIds: Record<string, boolean>;
+  savedFileContents: Record<string, string>;
   logs: LogEntry[];
   theme: 'light' | 'dark';
   accentColor: string;
@@ -37,6 +41,9 @@ export interface AppState {
   autoFormat: boolean;
   isSaving: boolean;
   isRunning: boolean;
+  isServerRunning: boolean;
+  serverPort: number;
+  isSidebarOpen: boolean;
   isConsoleVisible: boolean;
   isAIPanelVisible: boolean;
   aiPrompt: string | null;
@@ -47,6 +54,11 @@ export interface AppState {
   setFolders: (folders: Folder[]) => void;
   updateFileContent: (id: string, content: string) => void;
   setActiveFileId: (id: string) => void;
+  setActiveView: (view: ViewTab) => void;
+  markFileDirty: (id: string, isDirty: boolean) => void;
+  saveFile: (id?: string) => void;
+  saveAllFiles: () => void;
+  revertFileChanges: (id: string) => void;
   addLog: (log: Omit<LogEntry, 'id' | 'timestamp'>) => void;
   clearLogs: () => void;
   addTerminalLog: (log: { type: 'input' | 'output'; content: string; language?: string }) => void;
@@ -62,6 +74,9 @@ export interface AppState {
   setAutoFormat: (status: boolean) => void;
   setIsSaving: (status: boolean) => void;
   setIsRunning: (isRunning: boolean) => void;
+  setServerRunning: (running: boolean, port?: number) => void;
+  setSidebarOpen: (open: boolean) => void;
+  toggleSidebar: () => void;
   setConsoleVisible: (visible: boolean) => void;
   setAIPanelVisible: (visible: boolean) => void;
   setAiPrompt: (prompt: string | null) => void;

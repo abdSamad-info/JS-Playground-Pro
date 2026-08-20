@@ -72,6 +72,13 @@ export const useStore = create<AppState>()(
       files: DEFAULT_FILES,
       folders: [],
       activeFileId: 'index-js',
+      activeView: 'editor',
+      dirtyFileIds: {},
+      savedFileContents: {
+        'index-js': DEFAULT_FILES[0].content,
+        'index-html': DEFAULT_FILES[1].content,
+        'styles-css': DEFAULT_FILES[2].content,
+      },
       logs: [],
       theme: 'dark',
       accentColor: '#007acc',
@@ -84,6 +91,9 @@ export const useStore = create<AppState>()(
       autoFormat: false,
       isSaving: false,
       isRunning: false,
+      isServerRunning: false,
+      serverPort: 3000,
+      isSidebarOpen: true,
       isConsoleVisible: false,
       isAIPanelVisible: false,
       aiPrompt: null,
@@ -92,10 +102,69 @@ export const useStore = create<AppState>()(
       setFiles: (files) => set({ files }),
       setFolders: (folders) => set({ folders }),
       updateFileContent: (id, content) =>
-        set((state) => ({
-          files: state.files.map((f) => (f.id === id ? { ...f, content } : f)),
-        })),
+        set((state) => {
+          const savedContent = state.savedFileContents[id] ?? '';
+          const isDirty = savedContent !== content;
+          return {
+            files: state.files.map((f) => (f.id === id ? { ...f, content } : f)),
+            dirtyFileIds: {
+              ...state.dirtyFileIds,
+              [id]: isDirty,
+            },
+          };
+        }),
       setActiveFileId: (id) => set({ activeFileId: id }),
+      setActiveView: (activeView) => set({ activeView }),
+      markFileDirty: (id, isDirty) =>
+        set((state) => ({
+          dirtyFileIds: {
+            ...state.dirtyFileIds,
+            [id]: isDirty,
+          },
+        })),
+      saveFile: (id) =>
+        set((state) => {
+          const targetId = id || state.activeFileId;
+          const targetFile = state.files.find((f) => f.id === targetId);
+          if (!targetFile) return state;
+
+          return {
+            isSaving: false,
+            dirtyFileIds: {
+              ...state.dirtyFileIds,
+              [targetId]: false,
+            },
+            savedFileContents: {
+              ...state.savedFileContents,
+              [targetId]: targetFile.content,
+            },
+          };
+        }),
+      saveAllFiles: () =>
+        set((state) => {
+          const newSavedContents: Record<string, string> = { ...state.savedFileContents };
+          state.files.forEach((f) => {
+            newSavedContents[f.id] = f.content;
+          });
+          return {
+            isSaving: false,
+            dirtyFileIds: {},
+            savedFileContents: newSavedContents,
+          };
+        }),
+      revertFileChanges: (id) =>
+        set((state) => {
+          const savedContent = state.savedFileContents[id];
+          if (savedContent === undefined) return state;
+
+          return {
+            files: state.files.map((f) => (f.id === id ? { ...f, content: savedContent } : f)),
+            dirtyFileIds: {
+              ...state.dirtyFileIds,
+              [id]: false,
+            },
+          };
+        }),
       addLog: (log) =>
         set((state) => ({
           logs: [
@@ -123,6 +192,9 @@ export const useStore = create<AppState>()(
       setAutoFormat: (autoFormat) => set({ autoFormat }),
       setIsSaving: (isSaving) => set({ isSaving }),
       setIsRunning: (isRunning) => set({ isRunning }),
+      setServerRunning: (isServerRunning, serverPort = 3000) => set({ isServerRunning, serverPort }),
+      setSidebarOpen: (isSidebarOpen) => set({ isSidebarOpen }),
+      toggleSidebar: () => set((state) => ({ isSidebarOpen: !state.isSidebarOpen })),
       setConsoleVisible: (isConsoleVisible) => set({ isConsoleVisible }),
       setAIPanelVisible: (isAIPanelVisible) => set({ isAIPanelVisible }),
       setAiPrompt: (aiPrompt) => set({ aiPrompt }),
@@ -147,6 +219,14 @@ export const useStore = create<AppState>()(
           return {
             files: [...state.files, newFile],
             activeFileId: newFile.id,
+            savedFileContents: {
+              ...state.savedFileContents,
+              [newFile.id]: '',
+            },
+            dirtyFileIds: {
+              ...state.dirtyFileIds,
+              [newFile.id]: false,
+            },
           };
         });
         return success;
@@ -248,7 +328,21 @@ export const useStore = create<AppState>()(
         isRunning: false, // Reset running state when loading shared
         logs: [], // Clear logs
       })),
-      resetToDefault: () => set({ files: DEFAULT_FILES, folders: [], activeFileId: 'index-js', logs: [], isConsoleVisible: false }),
+      resetToDefault: () => set({ 
+        files: DEFAULT_FILES, 
+        folders: [], 
+        activeFileId: 'index-js', 
+        activeView: 'editor',
+        dirtyFileIds: {},
+        savedFileContents: {
+          'index-js': DEFAULT_FILES[0].content,
+          'index-html': DEFAULT_FILES[1].content,
+          'styles-css': DEFAULT_FILES[2].content,
+        },
+        logs: [], 
+        isConsoleVisible: false,
+        isServerRunning: false,
+      }),
     }),
     {
       name: 'js-playground-storage',
@@ -256,6 +350,7 @@ export const useStore = create<AppState>()(
         files: state.files,
         folders: state.folders,
         activeFileId: state.activeFileId,
+        savedFileContents: state.savedFileContents,
         theme: state.theme,
         accentColor: state.accentColor,
         fontSize: state.fontSize,

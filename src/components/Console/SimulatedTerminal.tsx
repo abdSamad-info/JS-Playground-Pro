@@ -214,7 +214,7 @@ export const SimulatedTerminal: React.FC = () => {
       case 'help':
         addTerminalLog({ 
           type: 'output', 
-          content: 'Available commands:\n  ls      - List files and folders with types and sizes\n  cat     - View file content with syntax highlighting\n  touch   - Create an empty file (e.g. touch test.js)\n  mkdir   - Create a new folder\n  node    - Run a JavaScript file (e.g. node index.js)\n  git     - Simulate Git repository operations (init, status, add, commit, log)\n  clear   - Clear terminal logs\n  help    - Show this help message\n  whoami  - Show current user info\n  date    - Show current date' 
+          content: 'Available commands:\n  ls       - List files and folders with types and sizes\n  cat      - View file content with syntax highlighting\n  touch    - Create an empty file (e.g. touch test.js)\n  mkdir    - Create a new folder\n  node     - Run a JavaScript file (e.g. node index.js)\n  npm      - Run npm commands (e.g. npm start, npm run dev)\n  git      - Simulate Git operations (init, status, add, commit, log)\n  history  - Display shell command history\n  clear    - Clear terminal logs\n  help     - Show this help message\n  whoami   - Show current user\n  date     - Show system time' 
         });
         return true;
       case 'ls': {
@@ -538,6 +538,38 @@ export const SimulatedTerminal: React.FC = () => {
             }
           }
         }
+      case 'npm': {
+        const sub = args[1]?.toLowerCase();
+        if (sub === 'start' || (sub === 'run' && (args[2] === 'dev' || args[2] === 'start'))) {
+          useStore.getState().setServerRunning(true, 3000);
+          addTerminalLog({
+            type: 'output',
+            content: `> js-playground@1.0.0 dev\n> node server.js\n\n[Node] Ready on http://localhost:3000\n[Server] Listening on PORT 3000 (status: active)`
+          });
+          return true;
+        } else if (sub === 'test') {
+          addTerminalLog({
+            type: 'output',
+            content: `> js-playground@1.0.0 test\n> jest\n\nPASS  ./index.test.js\n  ✓ workspace syntax check (14 ms)\n\nTest Suites: 1 passed, 1 total\nTests:       1 passed, 1 total`
+          });
+          return true;
+        } else {
+          addTerminalLog({
+            type: 'output',
+            content: `npm: command '${args.slice(1).join(' ')}' completed.`
+          });
+          return true;
+        }
+      }
+      case 'history': {
+        if (history.length === 0) {
+          addTerminalLog({ type: 'output', content: 'No command history recorded yet.' });
+          return true;
+        }
+        const histLines = history.map((item, idx) => `  ${(idx + 1).toString().padStart(3, ' ')}  ${item}`);
+        addTerminalLog({ type: 'output', content: histLines.join('\n') });
+        return true;
+      }
       case 'clear':
         clearTerminalLogs();
         return true;
