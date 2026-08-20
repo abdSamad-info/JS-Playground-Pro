@@ -1,6 +1,6 @@
 {
   "name": "JS Playground Pro",
-  "description": "A professional, modern online JavaScript code runner and playground with live preview, console output, and multi-tab support.",
+  "description": "A modern online JavaScript playground with Monaco editor, 12 custom themes, Prettier formatting, Vitest/Jest unit test runner, Git & GitHub cloning, ZIP project export, and live execution.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

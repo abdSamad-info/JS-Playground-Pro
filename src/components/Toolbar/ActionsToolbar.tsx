@@ -20,8 +20,12 @@ import {
   ListOrdered,
   Keyboard,
   Check,
-  Server,
-  Activity
+  CheckSquare,
+  Search,
+  FolderGit2,
+  Palette,
+  FileArchive,
+  Eraser
 } from 'lucide-react';
 import { 
   DropdownMenu,
@@ -35,7 +39,6 @@ import { Button } from '@/components/shadcn-ui/button';
 import { 
   Tooltip, 
   TooltipContent, 
-  TooltipProvider, 
   TooltipTrigger 
 } from '@/components/shadcn-ui/tooltip';
 import { cn } from '@/lib/utils';
@@ -43,7 +46,8 @@ import { toast } from 'sonner';
 import { generateSandboxContent } from '@/lib/sandbox';
 import { SettingsModal } from './SettingsModal';
 import { ShortcutsModal } from './ShortcutsModal';
-import { ViewTab } from '@/types/index';
+import { GitModal } from '../Git/GitModal';
+import { ExportModal } from './ExportModal';
 
 export const ActionsToolbar: React.FC = () => {
   const { 
@@ -53,8 +57,6 @@ export const ActionsToolbar: React.FC = () => {
     updateFileContent, 
     isRunning, 
     setIsRunning, 
-    isServerRunning,
-    serverPort,
     clearLogs, 
     resetToDefault,
     isConsoleVisible,
@@ -68,28 +70,49 @@ export const ActionsToolbar: React.FC = () => {
     dirtyFileIds,
     saveFile,
     saveAllFiles,
+    formatActiveFile,
+    testResults,
+    setCommandPaletteOpen,
+    isGitModalOpen,
+    setGitModalOpen,
+    isExportModalOpen,
+    setExportModalOpen,
+    isSettingsModalOpen,
+    setSettingsModalOpen,
     logs
   } = useStore();
 
   const [isSavingLocal, setIsSavingLocal] = useState(false);
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isFormatting, setIsFormatting] = useState(false);
   const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const activeFile = files.find(f => f.id === activeFileId);
   const isCurrentFileDirty = Boolean(activeFile && dirtyFileIds[activeFile.id]);
-  const hasAnyDirtyFiles = Object.values(dirtyFileIds).some(Boolean);
 
   const handleRun = () => {
     setIsRunning(true);
-    // Auto-save before running
     saveAllFiles();
-    // If not in preview or console, switch or open console/preview
     if (activeView === 'editor') {
-      // Also show console or switch to console
       setConsoleVisible(true);
     }
-    toast.success('Running JavaScript code...', { duration: 1500 });
+    toast.success('Executing JavaScript...', { duration: 1200 });
+  };
+
+  const handleFormat = async () => {
+    setIsFormatting(true);
+    try {
+      const changed = await formatActiveFile();
+      if (changed) {
+        toast.success(`Formatted ${activeFile?.name || 'document'} with Prettier`);
+      } else {
+        toast.info('Document already cleanly formatted');
+      }
+    } catch (e) {
+      toast.error('Formatting error occurred');
+    } finally {
+      setIsFormatting(false);
+    }
   };
 
   const handleManualSave = () => {
@@ -98,64 +121,30 @@ export const ActionsToolbar: React.FC = () => {
     setTimeout(() => {
       setIsSavingLocal(false);
       toast.success(`Saved ${activeFile?.name || 'file'}`);
-    }, 400);
+    }, 300);
   };
 
   const handlePreviewInNewTab = () => {
-    const content = generateSandboxContent(files);
+    const content = generateSandboxContent(files, activeFileId);
     const blob = new Blob([content], { type: 'text/html' });
     const url = URL.createObjectURL(blob);
     window.open(url, '_blank');
-    toast.info('Opening preview in new tab');
+    toast.info('Opened sandbox preview in new tab');
   };
 
   const handleCopy = () => {
     if (activeFile) {
       navigator.clipboard.writeText(activeFile.content);
-      toast.success('Code copied to clipboard');
+      toast.success('Active code copied to clipboard');
     }
-  };
-
-  const handleDownloadActive = () => {
-    if (activeFile) {
-      const blob = new Blob([activeFile.content], { type: 'text/plain' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = activeFile.name;
-      a.click();
-      URL.revokeObjectURL(url);
-      toast.success(`Downloaded ${activeFile.name}`);
-    }
-  };
-
-  const handleDownloadProject = () => {
-    const projectData = {
-      name: 'js-playground-project',
-      exportedAt: new Date().toISOString(),
-      files,
-      folders
-    };
-    const blob = new Blob([JSON.stringify(projectData, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'project-workspace.json';
-    a.click();
-    URL.revokeObjectURL(url);
-    toast.success('Exported workspace bundle');
   };
 
   const handleShare = () => {
-    const state = {
-      files,
-      folders,
-      activeFileId,
-    };
+    const state = { files, folders, activeFileId };
     const encoded = btoa(JSON.stringify(state));
     const url = `${window.location.origin}${window.location.pathname}?code=${encoded}`;
     navigator.clipboard.writeText(url);
-    toast.success('Shareable playground link copied to clipboard!');
+    toast.success('Shareable link copied to clipboard!');
   };
 
   const handleUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -165,17 +154,26 @@ export const ActionsToolbar: React.FC = () => {
       reader.onload = (event) => {
         const content = event.target?.result as string;
         updateFileContent(activeFileId, content);
-        toast.success(`Loaded content into ${activeFile?.name || 'file'}`);
+        toast.success(`Loaded ${file.name}`);
       };
       reader.readAsText(file);
     }
   };
 
+  const handleClearConsole = () => {
+    clearLogs();
+    toast.info('Console logs cleared');
+  };
+
+  const totalTests = testResults.summary?.totalTests || 0;
+  const passedTests = testResults.summary?.passedTests || 0;
+  const failedTests = testResults.summary?.failedTests || 0;
+
   return (
     <>
-      <header className="h-12 bg-[#2d2d2d] border-b border-[#3e3e42] flex items-center justify-between px-2 sm:px-4 shrink-0 select-none z-30">
+      <header className="h-11 md:h-12 bg-[#252526] border-b border-[#3e3e42] flex items-center justify-between px-2 sm:px-3.5 shrink-0 select-none z-30 w-full overflow-x-hidden">
         {/* Left Section: Sidebar Toggle & Branding */}
-        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+        <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
@@ -183,122 +181,219 @@ export const ActionsToolbar: React.FC = () => {
                 size="icon"
                 onClick={toggleSidebar}
                 className={cn(
-                  "h-8 w-8 text-[#cccccc] hover:text-white hover:bg-[#3e3e42] rounded transition-colors",
-                  isSidebarOpen && "text-[#007acc] bg-[#3e3e42]/50"
+                  "h-7 w-7 sm:h-8 sm:w-8 text-[#cccccc] hover:text-white hover:bg-[#333333] rounded transition-colors",
+                  isSidebarOpen && "text-[#58a6ff] bg-[#333333]/70"
                 )}
               >
-                <PanelLeft size={16} />
+                <PanelLeft size={15} />
               </Button>
             </TooltipTrigger>
-            <TooltipContent side="bottom">
-              Toggle Explorer (Ctrl+B)
-            </TooltipContent>
+            <TooltipContent side="bottom">Toggle Explorer (Ctrl+B)</TooltipContent>
           </Tooltip>
 
-          <div className="flex items-center gap-2">
-            <div className="w-6 h-6 bg-[#007acc] rounded flex items-center justify-center shadow-sm">
-              <span className="text-white font-bold text-[11px] tracking-tighter">JS</span>
+          <div className="flex items-center gap-1.5">
+            <div className="w-5.5 h-5.5 sm:w-6 sm:h-6 bg-[#007acc] rounded flex items-center justify-center shadow-xs">
+              <span className="text-white font-bold text-[10px] sm:text-[11px] tracking-tighter">JS</span>
             </div>
-            <div className="flex flex-col">
-              <span className="text-[13px] font-semibold text-white leading-tight hidden xs:inline-block">
-                Playground
-              </span>
-            </div>
+            <span className="text-xs sm:text-[13px] font-semibold text-white tracking-tight hidden sm:inline-block">
+              Playground
+            </span>
           </div>
 
-          {/* Status Indicator */}
-          <div className="hidden lg:flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-[#202020] border border-[#3e3e42] text-[10px] text-[#aaaaaa]">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span>Node.js v20</span>
-            {isServerRunning && (
-              <>
-                <span className="text-[#555]">•</span>
-                <span className="text-emerald-400 font-mono font-medium">:{serverPort} (Live)</span>
-              </>
-            )}
-          </div>
+          {/* Search / Command Palette trigger on larger screens */}
+          <button
+            onClick={() => setCommandPaletteOpen(true)}
+            className="hidden xl:flex items-center gap-2 h-7 px-2.5 bg-[#1e1e1e] hover:bg-[#2a2a2e] text-[#888888] hover:text-zinc-200 border border-[#3e3e42] rounded-md text-[11px] font-normal transition-colors"
+          >
+            <Search size={12} className="text-[#888888]" />
+            <span>Search actions...</span>
+            <kbd className="px-1 py-0.2 bg-[#2d2d2d] text-[#888888] rounded text-[9px] font-mono border border-[#444444]">
+              ⌘P
+            </kbd>
+          </button>
         </div>
 
-        {/* Center Section: Run Button & Top Tabs */}
-        <div className="flex items-center gap-1.5 sm:gap-3">
-          {/* Prominent Run Button */}
+        {/* Center Section: Run Action & Compact View Switcher */}
+        <div className="flex items-center gap-1 sm:gap-2 min-w-0">
+          {/* Green Run Button */}
           <Tooltip>
             <TooltipTrigger asChild>
               <Button 
                 onClick={handleRun} 
                 disabled={isRunning}
-                className="bg-emerald-600 hover:bg-emerald-500 text-white h-8 px-3 sm:px-4 gap-1.5 rounded-md text-[12px] font-semibold shadow-md transition-all active:scale-95 flex items-center"
+                className="bg-emerald-600 hover:bg-emerald-500 text-white h-7.5 sm:h-8 px-2.5 sm:px-3.5 gap-1.5 rounded-md text-[11px] sm:text-xs font-semibold shadow-xs transition-all active:scale-95 flex items-center shrink-0 cursor-pointer"
               >
-                <Play size={13} fill="currentColor" className="text-white" />
-                <span>Run</span>
+                <Play size={12} fill="currentColor" className="text-white shrink-0" />
+                <span className="hidden xs:inline">Run</span>
               </Button>
             </TooltipTrigger>
-            <TooltipContent side="bottom">Execute Code (Ctrl + Enter)</TooltipContent>
+            <TooltipContent side="bottom">Execute JavaScript (Ctrl + Enter)</TooltipContent>
           </Tooltip>
 
-          {/* Clean View Tabs Switcher */}
-          <div className="flex items-center bg-[#1e1e1e] p-0.5 rounded-md border border-[#3e3e42]">
-            <button
-              onClick={() => setActiveView('editor')}
-              className={cn(
-                "flex items-center gap-1 px-2 sm:px-3 h-7 rounded text-[11px] font-medium transition-all",
-                activeView === 'editor' 
-                  ? "bg-[#333333] text-white shadow-sm font-semibold" 
-                  : "text-[#888888] hover:text-[#cccccc]"
-              )}
-            >
-              <Code2 size={13} className="text-yellow-400" />
-              <span>Code</span>
-            </button>
+          {/* Format Document Button (hidden on very narrow mobile to protect 3-dots, shown on sm:) */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                id="format-document-button"
+                variant="outline"
+                size="sm"
+                onClick={handleFormat}
+                disabled={isFormatting || !activeFile}
+                className="hidden sm:flex h-7.5 sm:h-8 px-2 bg-[#1e1e1e] hover:bg-[#333333] text-[#cccccc] hover:text-white border-[#3e3e42] rounded-md text-xs font-medium gap-1.5 transition-colors shrink-0"
+              >
+                <Sparkles size={12} className={cn("text-amber-400 shrink-0", isFormatting && "animate-spin")} />
+                <span className="hidden md:inline">Format</span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">Format Document (Shift + Alt + F)</TooltipContent>
+          </Tooltip>
 
-            <button
-              onClick={() => setActiveView('console')}
-              className={cn(
-                "flex items-center gap-1 px-2 sm:px-3 h-7 rounded text-[11px] font-medium transition-all relative",
-                activeView === 'console' 
-                  ? "bg-[#333333] text-white shadow-sm font-semibold" 
-                  : "text-[#888888] hover:text-[#cccccc]"
-              )}
-            >
-              <ListOrdered size={13} className="text-blue-400" />
-              <span>Console</span>
-              {logs.length > 0 && (
-                <span className="ml-0.5 px-1 py-0.2 rounded-full bg-[#007acc] text-[9px] text-white font-mono leading-none">
-                  {logs.length}
-                </span>
-              )}
-            </button>
+          {/* Responsive View Tabs Switcher */}
+          <div className="flex items-center bg-[#18181a] p-0.5 rounded-md border border-[#3e3e42] shrink-0">
+            {/* Code Tab */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={() => setActiveView('editor')}
+                  className={cn(
+                    "flex items-center gap-1 px-1.5 sm:px-2.5 h-6.5 sm:h-7 rounded text-[11px] font-medium transition-all",
+                    activeView === 'editor' 
+                      ? "bg-[#2d2d30] text-white shadow-xs font-semibold" 
+                      : "text-zinc-400 hover:text-zinc-200"
+                  )}
+                >
+                  <Code2 size={13} className="text-yellow-400 shrink-0" />
+                  <span className="hidden md:inline">Code</span>
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">Code Editor</TooltipContent>
+            </Tooltip>
 
-            <button
-              onClick={() => setActiveView('terminal')}
-              className={cn(
-                "flex items-center gap-1 px-2 sm:px-3 h-7 rounded text-[11px] font-medium transition-all",
-                activeView === 'terminal' 
-                  ? "bg-[#333333] text-white shadow-sm font-semibold" 
-                  : "text-[#888888] hover:text-[#cccccc]"
-              )}
-            >
-              <Terminal size={13} className="text-emerald-400" />
-              <span>Terminal</span>
-            </button>
+            {/* Tests Tab */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={() => setActiveView('tests')}
+                  className={cn(
+                    "flex items-center gap-1 px-1.5 sm:px-2.5 h-6.5 sm:h-7 rounded text-[11px] font-medium transition-all relative",
+                    activeView === 'tests' 
+                      ? "bg-[#2d2d30] text-white shadow-xs font-semibold" 
+                      : "text-zinc-400 hover:text-zinc-200"
+                  )}
+                >
+                  <CheckSquare size={13} className="text-emerald-400 shrink-0" />
+                  <span className="hidden md:inline">Tests</span>
+                  {totalTests > 0 && (
+                    <span className={cn(
+                      "px-1 py-0.2 rounded-full text-[9px] font-mono leading-none",
+                      failedTests > 0 
+                        ? "bg-rose-600 text-white" 
+                        : "bg-emerald-600 text-white"
+                    )}>
+                      {passedTests}/{totalTests}
+                    </span>
+                  )}
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">Unit Test Runner</TooltipContent>
+            </Tooltip>
 
-            <button
-              onClick={() => setActiveView('preview')}
-              className={cn(
-                "flex items-center gap-1 px-2 sm:px-3 h-7 rounded text-[11px] font-medium transition-all",
-                activeView === 'preview' 
-                  ? "bg-[#333333] text-white shadow-sm font-semibold" 
-                  : "text-[#888888] hover:text-[#cccccc]"
-              )}
-            >
-              <Tv size={13} className="text-purple-400" />
-              <span className="hidden xs:inline">Preview</span>
-            </button>
+            {/* Console Tab */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={() => setActiveView('console')}
+                  className={cn(
+                    "flex items-center gap-1 px-1.5 sm:px-2.5 h-6.5 sm:h-7 rounded text-[11px] font-medium transition-all relative",
+                    activeView === 'console' 
+                      ? "bg-[#2d2d30] text-white shadow-xs font-semibold" 
+                      : "text-zinc-400 hover:text-zinc-200"
+                  )}
+                >
+                  <ListOrdered size={13} className="text-blue-400 shrink-0" />
+                  <span className="hidden md:inline">Logs</span>
+                  {logs.length > 0 && (
+                    <span className="px-1 py-0.2 rounded-full bg-[#007acc] text-[9px] text-white font-mono leading-none">
+                      {logs.length}
+                    </span>
+                  )}
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">Console Output Logs</TooltipContent>
+            </Tooltip>
+
+            {/* Terminal Tab */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={() => setActiveView('terminal')}
+                  className={cn(
+                    "flex items-center gap-1 px-1.5 sm:px-2.5 h-6.5 sm:h-7 rounded text-[11px] font-medium transition-all",
+                    activeView === 'terminal' 
+                      ? "bg-[#2d2d30] text-white shadow-xs font-semibold" 
+                      : "text-zinc-400 hover:text-zinc-200"
+                  )}
+                >
+                  <Terminal size={13} className="text-emerald-400 shrink-0" />
+                  <span className="hidden md:inline">Terminal</span>
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">Interactive Terminal</TooltipContent>
+            </Tooltip>
+
+            {/* Preview Tab */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={() => setActiveView('preview')}
+                  className={cn(
+                    "flex items-center gap-1 px-1.5 sm:px-2.5 h-6.5 sm:h-7 rounded text-[11px] font-medium transition-all",
+                    activeView === 'preview' 
+                      ? "bg-[#2d2d30] text-white shadow-xs font-semibold" 
+                      : "text-zinc-400 hover:text-zinc-200"
+                  )}
+                >
+                  <Tv size={13} className="text-purple-400 shrink-0" />
+                  <span className="hidden md:inline">Preview</span>
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">Live Sandbox Preview</TooltipContent>
+            </Tooltip>
           </div>
         </div>
 
-        {/* Right Section: Save & Clean 3-Dot Menu */}
-        <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+        {/* Right Section: Save Status, Git, Export & Three-Dots Menu */}
+        <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
+          {/* Quick Git Modal Trigger */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setGitModalOpen(true)}
+                className="hidden lg:flex h-7.5 w-7.5 text-zinc-300 hover:text-white hover:bg-[#333333] rounded"
+              >
+                <FolderGit2 size={15} className="text-[#58a6ff]" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">Git & GitHub Integration</TooltipContent>
+          </Tooltip>
+
+          {/* Quick Export Project Trigger */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setExportModalOpen(true)}
+                className="hidden lg:flex h-7.5 w-7.5 text-zinc-300 hover:text-white hover:bg-[#333333] rounded"
+              >
+                <FileArchive size={15} className="text-emerald-400" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">Export Project as ZIP / JSON</TooltipContent>
+          </Tooltip>
+
           {/* Save Button with Unsaved Indicator */}
           <Tooltip>
             <TooltipTrigger asChild>
@@ -309,31 +404,31 @@ export const ActionsToolbar: React.FC = () => {
                 onClick={handleManualSave}
                 disabled={isSavingLocal}
                 className={cn(
-                  "h-8 px-2 sm:px-2.5 text-xs rounded gap-1.5 transition-colors border",
+                  "h-7 sm:h-8 px-1.5 sm:px-2.5 text-xs rounded gap-1 transition-colors border",
                   isCurrentFileDirty 
                     ? "bg-amber-500/10 text-amber-300 border-amber-500/40 hover:bg-amber-500/20 font-medium" 
-                    : "border-transparent text-[#888888] hover:text-white hover:bg-[#3e3e42]"
+                    : "border-transparent text-zinc-400 hover:text-white hover:bg-[#333333]"
                 )}
               >
                 {isSavingLocal ? (
-                  <RotateCcw size={13} className="animate-spin text-[#007acc]" />
+                  <RotateCcw size={12} className="animate-spin text-[#007acc]" />
                 ) : isCurrentFileDirty ? (
                   <div className="flex items-center gap-1">
-                    <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
-                    <Save size={13} className="text-amber-400" />
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping" />
+                    <Save size={12} className="text-amber-400" />
                   </div>
                 ) : (
-                  <Save size={13} />
+                  <Save size={12} />
                 )}
-                <span className="hidden md:inline">
+                <span className="hidden xl:inline text-[11px]">
                   {isSavingLocal ? 'Saving...' : isCurrentFileDirty ? 'Save *' : 'Saved'}
                 </span>
               </Button>
             </TooltipTrigger>
-            <TooltipContent side="bottom">Save File (Ctrl + S)</TooltipContent>
+            <TooltipContent side="bottom">Save Active File (Ctrl + S)</TooltipContent>
           </Tooltip>
 
-          {/* AI Assistant Toggle Button */}
+          {/* AI Code Assistant Toggle */}
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
@@ -341,112 +436,134 @@ export const ActionsToolbar: React.FC = () => {
                 size="icon"
                 onClick={() => setAIPanelVisible(!isAIPanelVisible)}
                 className={cn(
-                  "h-8 w-8 text-[#cccccc] hover:text-white hover:bg-[#3e3e42] rounded",
-                  isAIPanelVisible && "text-purple-400 bg-[#3e3e42]"
+                  "h-7 w-7 sm:h-8 sm:w-8 text-zinc-300 hover:text-white hover:bg-[#333333] rounded",
+                  isAIPanelVisible && "text-purple-400 bg-[#333333]"
                 )}
               >
-                <Sparkles size={15} className="text-purple-400" />
+                <Sparkles size={14} className="text-purple-400" />
               </Button>
             </TooltipTrigger>
             <TooltipContent side="bottom">AI Code Assistant</TooltipContent>
           </Tooltip>
 
-          {/* Preview in external tab */}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={handlePreviewInNewTab}
-                className="h-8 w-8 text-[#cccccc] hover:text-white hover:bg-[#3e3e42] rounded hidden sm:flex"
-              >
-                <ExternalLink size={15} />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom">Open Preview in New Tab</TooltipContent>
-          </Tooltip>
-
-          {/* Three-Dot Menu housing all secondary / settings options */}
+          {/* Three-Dot Menu - Fully Accessible & Pinned on Mobile & Desktop */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
+                id="three-dots-menu-button"
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8 text-[#cccccc] hover:text-white hover:bg-[#3e3e42] rounded"
+                className="h-7 w-7 sm:h-8 sm:w-8 text-zinc-200 hover:text-white hover:bg-[#38383c] border border-transparent hover:border-[#444] rounded shrink-0 cursor-pointer"
               >
                 <MoreHorizontal size={17} />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56 bg-[#252526] border-[#454545] text-[#cccccc] shadow-xl">
-              <DropdownMenuLabel className="text-[11px] text-[#888888] font-mono uppercase tracking-wider">
-                Workspace & Options
+            <DropdownMenuContent align="end" className="w-60 bg-[#222225] border-[#3e3e42] text-[#cccccc] shadow-2xl z-50">
+              <DropdownMenuLabel className="text-[10px] text-zinc-400 font-mono uppercase tracking-wider">
+                Tools & Operations
               </DropdownMenuLabel>
-              
+
               <DropdownMenuItem 
-                onClick={() => setIsSettingsOpen(true)}
-                className="text-xs cursor-pointer hover:bg-[#37373d] text-white gap-2 py-2"
+                onClick={() => setCommandPaletteOpen(true)}
+                className="text-xs cursor-pointer hover:bg-[#2d2d32] text-white gap-2.5 py-2"
               >
-                <Settings2 size={14} className="text-[#007acc]" />
-                <span>Editor Preferences</span>
+                <Search size={14} className="text-emerald-400" />
+                <div className="flex items-center justify-between w-full">
+                  <span>Command Palette</span>
+                  <span className="text-[10px] text-zinc-400 font-mono">⌘P</span>
+                </div>
+              </DropdownMenuItem>
+
+              <DropdownMenuItem 
+                onClick={handleFormat}
+                className="text-xs cursor-pointer hover:bg-[#2d2d32] text-white gap-2.5 py-2"
+              >
+                <Sparkles size={14} className="text-amber-400" />
+                <div className="flex items-center justify-between w-full">
+                  <span>Format Document</span>
+                  <span className="text-[10px] text-zinc-400 font-mono">⇧⌥F</span>
+                </div>
+              </DropdownMenuItem>
+
+              <DropdownMenuItem 
+                onClick={() => setGitModalOpen(true)}
+                className="text-xs cursor-pointer hover:bg-[#2d2d32] text-white gap-2.5 py-2"
+              >
+                <FolderGit2 size={14} className="text-[#58a6ff]" />
+                <div className="flex items-center justify-between w-full">
+                  <span>Git & GitHub Clone</span>
+                  <span className="text-[9px] px-1 py-0.2 rounded bg-[#58a6ff]/20 text-[#58a6ff]">Git</span>
+                </div>
+              </DropdownMenuItem>
+
+              <DropdownMenuItem 
+                onClick={() => setExportModalOpen(true)}
+                className="text-xs cursor-pointer hover:bg-[#2d2d32] text-white gap-2.5 py-2"
+              >
+                <FileArchive size={14} className="text-emerald-400" />
+                <div className="flex items-center justify-between w-full">
+                  <span>Export Project (ZIP)</span>
+                  <span className="text-[9px] px-1 py-0.2 rounded bg-emerald-500/20 text-emerald-400">ZIP</span>
+                </div>
+              </DropdownMenuItem>
+
+              <DropdownMenuItem 
+                onClick={() => setSettingsModalOpen(true)}
+                className="text-xs cursor-pointer hover:bg-[#2d2d32] text-white gap-2.5 py-2"
+              >
+                <Palette size={14} className="text-[#007acc]" />
+                <span>Themes & Preferences</span>
               </DropdownMenuItem>
 
               <DropdownMenuItem 
                 onClick={() => setIsShortcutsOpen(true)}
-                className="text-xs cursor-pointer hover:bg-[#37373d] text-white gap-2 py-2"
+                className="text-xs cursor-pointer hover:bg-[#2d2d32] text-white gap-2.5 py-2"
               >
                 <Keyboard size={14} className="text-emerald-400" />
                 <span>Keyboard Shortcuts</span>
               </DropdownMenuItem>
 
+              <DropdownMenuSeparator className="bg-[#333338]" />
+
               <DropdownMenuItem 
                 onClick={handleShare}
-                className="text-xs cursor-pointer hover:bg-[#37373d] text-white gap-2 py-2"
+                className="text-xs cursor-pointer hover:bg-[#2d2d32] text-white gap-2.5 py-2"
               >
                 <Share2 size={14} className="text-blue-400" />
-                <span>Share Project Link</span>
+                <span>Share Playground Link</span>
               </DropdownMenuItem>
-
-              <DropdownMenuSeparator className="bg-[#3e3e42]" />
 
               <DropdownMenuItem 
                 onClick={handleCopy}
-                className="text-xs cursor-pointer hover:bg-[#37373d] text-white gap-2 py-2"
+                className="text-xs cursor-pointer hover:bg-[#2d2d32] text-white gap-2.5 py-2"
               >
-                <Copy size={14} className="text-[#888888]" />
-                <span>Copy Active Code</span>
+                <Copy size={14} className="text-zinc-400" />
+                <span>Copy Active File Code</span>
               </DropdownMenuItem>
 
               <DropdownMenuItem 
-                onClick={handleDownloadActive}
-                className="text-xs cursor-pointer hover:bg-[#37373d] text-white gap-2 py-2"
+                onClick={handlePreviewInNewTab}
+                className="text-xs cursor-pointer hover:bg-[#2d2d32] text-white gap-2.5 py-2"
               >
-                <Download size={14} className="text-[#888888]" />
-                <span>Download Active File</span>
-              </DropdownMenuItem>
-
-              <DropdownMenuItem 
-                onClick={handleDownloadProject}
-                className="text-xs cursor-pointer hover:bg-[#37373d] text-white gap-2 py-2"
-              >
-                <Download size={14} className="text-[#888888]" />
-                <span>Export All (JSON)</span>
+                <ExternalLink size={14} className="text-purple-400" />
+                <span>Open Preview in New Tab</span>
               </DropdownMenuItem>
 
               <DropdownMenuItem 
                 onClick={() => fileInputRef.current?.click()}
-                className="text-xs cursor-pointer hover:bg-[#37373d] text-white gap-2 py-2"
+                className="text-xs cursor-pointer hover:bg-[#2d2d32] text-white gap-2.5 py-2"
               >
-                <Upload size={14} className="text-[#888888]" />
-                <span>Import File to Editor</span>
+                <Upload size={14} className="text-zinc-400" />
+                <span>Import File from Computer</span>
               </DropdownMenuItem>
 
-              <DropdownMenuSeparator className="bg-[#3e3e42]" />
+              <DropdownMenuSeparator className="bg-[#333338]" />
 
               <DropdownMenuItem 
-                onClick={clearLogs}
-                className="text-xs cursor-pointer hover:bg-[#37373d] text-white gap-2 py-2"
+                onClick={handleClearConsole}
+                className="text-xs cursor-pointer hover:bg-[#2d2d32] text-amber-300 gap-2.5 py-2"
               >
-                <RotateCcw size={14} className="text-amber-400" />
+                <Eraser size={14} />
                 <span>Clear Console Logs</span>
               </DropdownMenuItem>
 
@@ -457,7 +574,7 @@ export const ActionsToolbar: React.FC = () => {
                     toast.success('Workspace reset to defaults');
                   }
                 }}
-                className="text-xs cursor-pointer hover:bg-red-500/20 text-red-400 gap-2 py-2"
+                className="text-xs cursor-pointer hover:bg-red-500/20 text-red-400 gap-2.5 py-2"
               >
                 <Trash2 size={14} />
                 <span>Reset Playground</span>
@@ -477,8 +594,8 @@ export const ActionsToolbar: React.FC = () => {
 
       {/* Settings Modal */}
       <SettingsModal 
-        isOpen={isSettingsOpen} 
-        onClose={() => setIsSettingsOpen(false)} 
+        isOpen={isSettingsModalOpen} 
+        onClose={() => setSettingsModalOpen(false)} 
       />
 
       {/* Shortcuts Modal */}
@@ -486,6 +603,12 @@ export const ActionsToolbar: React.FC = () => {
         isOpen={isShortcutsOpen} 
         onClose={() => setIsShortcutsOpen(false)} 
       />
+
+      {/* Git & GitHub Integration Modal */}
+      <GitModal />
+
+      {/* Project Export Modal */}
+      <ExportModal />
     </>
   );
 };

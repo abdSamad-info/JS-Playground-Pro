@@ -1,6 +1,9 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { AppState, File, Folder } from '../types/index';
+import { AppState, File, Folder, TestSuiteResult, TestSummary, ThemePreset } from '../types/index';
+import { formatCode } from '../lib/formatter';
+import { runUnitTests } from '../lib/testRunner';
+import { STARTER_TEMPLATES } from '../lib/gitService';
 
 const DEFAULT_FILES: File[] = [
   {
@@ -26,6 +29,54 @@ function fibonacci(n) {
 }
 
 console.log("Fibonacci(10):", fibonacci(10));
+`,
+  },
+  {
+    id: 'index-test-js',
+    name: 'index.test.js',
+    language: 'javascript',
+    parentId: null,
+    content: `// Unit tests for index.js
+// Run these using the "Tests" tab, Command Palette (Ctrl+Shift+P), or Terminal (npm test)
+
+describe('Fibonacci Algorithm', () => {
+  test('returns base case for n = 0', () => {
+    expect(fibonacci(0)).toBe(0);
+  });
+
+  test('returns base case for n = 1', () => {
+    expect(fibonacci(1)).toBe(1);
+  });
+
+  test('calculates 6th fibonacci number correctly', () => {
+    expect(fibonacci(6)).toBe(8);
+  });
+
+  test('calculates 10th fibonacci number correctly', () => {
+    expect(fibonacci(10)).toBe(55);
+  });
+});
+
+describe('Workspace Data & Matchers', () => {
+  test('greeting contains greeting word', () => {
+    expect(greeting).toContain('Hello');
+    expect(greeting).toHaveLength(12);
+  });
+
+  test('deep array equality checks pass', () => {
+    const numbers = [1, 2, 3, 4, 5];
+    const doubled = numbers.map(x => x * 2);
+    expect(doubled).toEqual([2, 4, 6, 8, 10]);
+  });
+
+  test('handles asynchronous promises cleanly', async () => {
+    const fetchUserData = async () => ({ id: 42, role: 'developer', active: true });
+    const user = await fetchUserData();
+    expect(user.id).toBe(42);
+    expect(user.role).toBe('developer');
+    expect(user.active).toBeTruthy();
+  });
+});
 `,
   },
   {
@@ -68,7 +119,7 @@ h1 {
 
 export const useStore = create<AppState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       files: DEFAULT_FILES,
       folders: [],
       activeFileId: 'index-js',
@@ -76,8 +127,9 @@ export const useStore = create<AppState>()(
       dirtyFileIds: {},
       savedFileContents: {
         'index-js': DEFAULT_FILES[0].content,
-        'index-html': DEFAULT_FILES[1].content,
-        'styles-css': DEFAULT_FILES[2].content,
+        'index-test-js': DEFAULT_FILES[1].content,
+        'index-html': DEFAULT_FILES[2].content,
+        'styles-css': DEFAULT_FILES[3].content,
       },
       logs: [],
       theme: 'dark',
@@ -87,7 +139,8 @@ export const useStore = create<AppState>()(
       lineNumbers: 'on',
       wordWrap: 'on',
       minimap: false,
-      themePreset: 'vs-code',
+      themePreset: 'vs-code' as ThemePreset,
+      tabSize: 2,
       autoFormat: false,
       isSaving: false,
       isRunning: false,
@@ -98,6 +151,15 @@ export const useStore = create<AppState>()(
       isAIPanelVisible: false,
       aiPrompt: null,
       terminalLogs: [],
+      testResults: {
+        suites: [],
+        summary: null,
+      },
+      isTesting: false,
+      isCommandPaletteOpen: false,
+      isGitModalOpen: false,
+      isExportModalOpen: false,
+      isSettingsModalOpen: false,
 
       setFiles: (files) => set({ files }),
       setFolders: (folders) => set({ folders }),
@@ -189,6 +251,7 @@ export const useStore = create<AppState>()(
       setWordWrap: (wordWrap) => set({ wordWrap }),
       setMinimap: (minimap) => set({ minimap }),
       setThemePreset: (themePreset) => set({ themePreset }),
+      setTabSize: (tabSize) => set({ tabSize }),
       setAutoFormat: (autoFormat) => set({ autoFormat }),
       setIsSaving: (isSaving) => set({ isSaving }),
       setIsRunning: (isRunning) => set({ isRunning }),
@@ -198,7 +261,83 @@ export const useStore = create<AppState>()(
       setConsoleVisible: (isConsoleVisible) => set({ isConsoleVisible }),
       setAIPanelVisible: (isAIPanelVisible) => set({ isAIPanelVisible }),
       setAiPrompt: (aiPrompt) => set({ aiPrompt }),
-      addFile: (name, language, parentId = null) => {
+      setCommandPaletteOpen: (isCommandPaletteOpen) => set({ isCommandPaletteOpen }),
+      setGitModalOpen: (isGitModalOpen) => set({ isGitModalOpen }),
+      setExportModalOpen: (isExportModalOpen) => set({ isExportModalOpen }),
+      setSettingsModalOpen: (isSettingsModalOpen) => set({ isSettingsModalOpen }),
+
+      formatActiveFile: async () => {
+        const state = get();
+        const activeFile = state.files.find((f) => f.id === state.activeFileId);
+        if (!activeFile) return false;
+
+        const res = await formatCode(activeFile.content, activeFile.language, activeFile.name);
+        if (res.changed) {
+          state.updateFileContent(activeFile.id, res.formatted);
+          return true;
+        }
+        return false;
+      },
+
+      runTests: async (targetFileId?: string) => {
+        set({ isTesting: true });
+        try {
+          const state = get();
+          const results = await runUnitTests(state.files, targetFileId);
+          set({
+            testResults: results,
+            isTesting: false,
+          });
+        } catch (err) {
+          console.error('Test run failed', err);
+          set({ isTesting: false });
+        }
+      },
+
+      createSampleTestFile: () => {
+        const state = get();
+        const testFileName = 'math.test.js';
+        const exists = state.files.some(f => f.name === testFileName);
+        if (exists) {
+          const target = state.files.find(f => f.name === testFileName);
+          if (target) state.setActiveFileId(target.id);
+          return;
+        }
+
+        const sampleContent = `// Unit tests with Jest/Vitest style syntax
+
+describe('Math Operations Suite', () => {
+  test('addition of positive numbers', () => {
+    expect(2 + 2).toBe(4);
+    expect(10 + 20).toBe(30);
+  });
+
+  test('multiplication and floats with toBeCloseTo', () => {
+    expect(0.1 + 0.2).toBeCloseTo(0.3, 2);
+    expect(5 * 5).toBe(25);
+  });
+
+  test('truthy and falsy checks', () => {
+    expect(true).toBeTruthy();
+    expect(false).toBeFalsy();
+    expect(null).toBeNull();
+    expect(undefined).toBeUndefined();
+  });
+});
+
+describe('Exception handling', () => {
+  test('detects thrown errors', () => {
+    const errorFn = () => {
+      throw new Error('Invalid parameter supplied');
+    };
+    expect(errorFn).toThrow('Invalid parameter');
+  });
+});
+`;
+        state.addFile(testFileName, 'javascript', null, sampleContent);
+      },
+
+      addFile: (name, language, parentId = null, initialContent = '') => {
         let success = false;
         set((state) => {
           // Check for duplicate name in the same parent
@@ -213,7 +352,7 @@ export const useStore = create<AppState>()(
             name,
             language,
             parentId,
-            content: '',
+            content: initialContent,
           };
           success = true;
           return {
@@ -221,7 +360,7 @@ export const useStore = create<AppState>()(
             activeFileId: newFile.id,
             savedFileContents: {
               ...state.savedFileContents,
-              [newFile.id]: '',
+              [newFile.id]: initialContent,
             },
             dirtyFileIds: {
               ...state.dirtyFileIds,
@@ -288,8 +427,6 @@ export const useStore = create<AppState>()(
         }),
       deleteFolder: (id) =>
         set((state) => {
-          // Recursive delete would be better, but for now just delete the folder
-          // and move children to root or delete them too? Let's delete children too.
           const deleteChildren = (folderId: string): string[] => {
             const childFolders = state.folders.filter(f => f.parentId === folderId);
             let ids = [folderId];
@@ -322,11 +459,66 @@ export const useStore = create<AppState>()(
         set((state) => ({
           folders: state.folders.map(f => f.id === id ? { ...f, name } : f)
         })),
+      loadStarterTemplate: (templateId: string) => {
+        const template = STARTER_TEMPLATES.find(t => t.id === templateId);
+        if (!template) return;
+
+        const newFiles: File[] = template.files.map(tf => ({
+          id: `file-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
+          name: tf.name,
+          language: tf.language,
+          parentId: null,
+          content: tf.content
+        }));
+
+        const savedContents: Record<string, string> = {};
+        newFiles.forEach(f => {
+          savedContents[f.id] = f.content;
+        });
+
+        const activeId = newFiles.find(f => f.name.endsWith('.js'))?.id || newFiles[0]?.id || '';
+
+        set({
+          files: newFiles,
+          folders: [],
+          activeFileId: activeId,
+          dirtyFileIds: {},
+          savedFileContents: savedContents,
+          logs: [],
+          terminalLogs: [],
+          testResults: { suites: [], summary: null },
+          activeView: 'editor'
+        });
+      },
+
+      loadClonedWorkspace: (importedFiles: File[], importedFolders: Folder[]) => {
+        if (!importedFiles || importedFiles.length === 0) return;
+
+        const savedContents: Record<string, string> = {};
+        importedFiles.forEach(f => {
+          savedContents[f.id] = f.content;
+        });
+
+        const activeId = importedFiles.find(f => f.name === 'index.js' || f.name === 'main.js' || f.name.endsWith('.js'))?.id || importedFiles[0]?.id || '';
+
+        set({
+          files: importedFiles,
+          folders: importedFolders,
+          activeFileId: activeId,
+          dirtyFileIds: {},
+          savedFileContents: savedContents,
+          logs: [],
+          terminalLogs: [],
+          testResults: { suites: [], summary: null },
+          activeView: 'editor'
+        });
+      },
+
       setSharedState: (sharedState) => set((state) => ({
         ...state,
         ...sharedState,
-        isRunning: false, // Reset running state when loading shared
-        logs: [], // Clear logs
+        isRunning: false,
+        logs: [],
       })),
       resetToDefault: () => set({ 
         files: DEFAULT_FILES, 
@@ -336,12 +528,14 @@ export const useStore = create<AppState>()(
         dirtyFileIds: {},
         savedFileContents: {
           'index-js': DEFAULT_FILES[0].content,
-          'index-html': DEFAULT_FILES[1].content,
-          'styles-css': DEFAULT_FILES[2].content,
+          'index-test-js': DEFAULT_FILES[1].content,
+          'index-html': DEFAULT_FILES[2].content,
+          'styles-css': DEFAULT_FILES[3].content,
         },
         logs: [], 
         isConsoleVisible: false,
         isServerRunning: false,
+        testResults: { suites: [], summary: null },
       }),
     }),
     {
@@ -364,3 +558,4 @@ export const useStore = create<AppState>()(
     }
   )
 );
+

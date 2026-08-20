@@ -11,6 +11,8 @@ import { ConsoleOutput } from '@/components/Console/ConsoleOutput';
 import { SimulatedTerminal } from '@/components/Console/SimulatedTerminal';
 import { LivePreview } from '@/components/Preview/LivePreview';
 import { AIAssistant } from '@/components/Sidebar/AIAssistant';
+import { TestRunnerView } from '@/components/TestRunner/TestRunnerView';
+import { CommandPalette } from '@/components/CommandPalette/CommandPalette';
 import { UnsavedChangesModal } from '@/components/Editor/UnsavedChangesModal';
 import { useStore } from '@/store/useStore';
 import { Toaster } from '@/components/shadcn-ui/sonner';
@@ -29,7 +31,9 @@ import {
   FileCode,
   FileJson,
   FileText,
-  FileSpreadsheet
+  FileSpreadsheet,
+  CheckSquare,
+  Sparkles
 } from 'lucide-react';
 import { Button } from '@/components/shadcn-ui/button';
 import { cn } from '@/lib/utils';
@@ -61,7 +65,10 @@ export const MainLayout: React.FC = () => {
     fontSize,
     fontFamily,
     themePreset,
-    setSharedState
+    setSharedState,
+    formatActiveFile,
+    runTests,
+    setCommandPaletteOpen
   } = useStore();
 
   const [isLargeScreen, setIsLargeScreen] = useState(typeof window !== 'undefined' ? window.innerWidth >= 768 : true);
@@ -108,7 +115,33 @@ export const MainLayout: React.FC = () => {
   // Global Keyboard Shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Run: Ctrl + Enter
+      // Command Palette: Ctrl + Shift + P or Cmd + Shift + P
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'P' || e.key === 'p')) {
+        e.preventDefault();
+        setCommandPaletteOpen(true);
+        return;
+      }
+
+      // Format Document: Shift + Alt + F or Shift + Option + F
+      if (e.shiftKey && e.altKey && (e.key === 'F' || e.key === 'f')) {
+        e.preventDefault();
+        formatActiveFile().then((changed) => {
+          if (changed) toast.success('Formatted document with Prettier');
+          else toast.info('Document is already formatted');
+        });
+        return;
+      }
+
+      // Run Unit Tests: Ctrl + Shift + T or Cmd + Shift + T
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'T' || e.key === 't')) {
+        e.preventDefault();
+        setActiveView('tests');
+        runTests();
+        toast.info('Running unit tests...');
+        return;
+      }
+
+      // Run Code: Ctrl + Enter or Cmd + Enter
       if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
         e.preventDefault();
         setIsRunning(true);
@@ -117,31 +150,47 @@ export const MainLayout: React.FC = () => {
           setConsoleVisible(true);
         }
         toast.success('Running JavaScript code...');
+        return;
       }
       
-      // Save: Ctrl + S
+      // Save: Ctrl + S or Cmd + S
       if ((e.ctrlKey || e.metaKey) && e.key === 's') {
         e.preventDefault();
         saveFile();
         toast.success('Saved active file changes');
+        return;
       }
 
-      // Toggle Explorer: Ctrl + B
+      // Toggle Explorer: Ctrl + B or Cmd + B
       if ((e.ctrlKey || e.metaKey) && e.key === 'b') {
         e.preventDefault();
         setSidebarOpen(!isSidebarOpen);
+        return;
       }
 
       // Toggle Console Drawer: Ctrl + `
       if ((e.ctrlKey || e.metaKey) && e.key === '`') {
         e.preventDefault();
         setConsoleVisible(!isConsoleVisible);
+        return;
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isSidebarOpen, setSidebarOpen, isConsoleVisible, setConsoleVisible, setIsRunning, saveFile, activeView]);
+  }, [
+    isSidebarOpen, 
+    setSidebarOpen, 
+    isConsoleVisible, 
+    setConsoleVisible, 
+    setIsRunning, 
+    saveFile, 
+    activeView, 
+    formatActiveFile, 
+    runTests, 
+    setCommandPaletteOpen,
+    setActiveView
+  ]);
 
   const activeFile = files.find(f => f.id === activeFileId);
   const dirtyCount = Object.values(dirtyFileIds).filter(Boolean).length;
@@ -179,6 +228,9 @@ export const MainLayout: React.FC = () => {
   };
 
   const getFileTabIcon = (lang: string, name: string) => {
+    if (name.includes('.test.') || name.includes('.spec.')) {
+      return <CheckSquare size={13} className="text-emerald-400 shrink-0" />;
+    }
     if (name.endsWith('.ts') || name.endsWith('.tsx') || lang === 'typescript') {
       return <FileCode size={13} className="text-sky-400 shrink-0" />;
     }
@@ -361,7 +413,14 @@ export const MainLayout: React.FC = () => {
                 </div>
               )}
 
-              {/* 2. DEDICATED CONSOLE PAGE/VIEW */}
+              {/* 2. DEDICATED TEST RUNNER VIEW */}
+              {activeView === 'tests' && (
+                <div className="flex-1 flex flex-col overflow-hidden">
+                  <TestRunnerView />
+                </div>
+              )}
+
+              {/* 3. DEDICATED CONSOLE PAGE/VIEW */}
               {activeView === 'console' && (
                 <div className="flex-1 flex flex-col bg-[#1e1e1e] overflow-hidden">
                   <div className="h-8 bg-[#252526] border-b border-[#3e3e42] flex items-center justify-between px-3 shrink-0">
@@ -383,7 +442,7 @@ export const MainLayout: React.FC = () => {
                 </div>
               )}
 
-              {/* 3. DEDICATED TERMINAL PAGE/VIEW */}
+              {/* 4. DEDICATED TERMINAL PAGE/VIEW */}
               {activeView === 'terminal' && (
                 <div className="flex-1 flex flex-col bg-[#1e1e1e] overflow-hidden">
                   <div className="h-8 bg-[#252526] border-b border-[#3e3e42] flex items-center justify-between px-3 shrink-0">
@@ -405,7 +464,7 @@ export const MainLayout: React.FC = () => {
                 </div>
               )}
 
-              {/* 4. DEDICATED LIVE PREVIEW PAGE/VIEW */}
+              {/* 5. DEDICATED LIVE PREVIEW PAGE/VIEW */}
               {activeView === 'preview' && (
                 <div className="flex-1 flex flex-col bg-white overflow-hidden">
                   <div className="h-8 bg-[#252526] border-b border-[#3e3e42] flex items-center justify-between px-3 shrink-0">
@@ -470,6 +529,9 @@ export const MainLayout: React.FC = () => {
             <span className="hidden md:inline">Prettier</span>
           </div>
         </footer>
+
+        {/* Searchable Command Palette */}
+        <CommandPalette />
 
         {/* Unsaved Changes Confirmation Modal */}
         <UnsavedChangesModal

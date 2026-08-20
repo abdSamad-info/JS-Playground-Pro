@@ -10,6 +10,7 @@ import * as parserBabel from 'prettier/plugins/babel';
 import * as parserHtml from 'prettier/plugins/html';
 import * as parserPostcss from 'prettier/plugins/postcss';
 import * as parserEstree from 'prettier/plugins/estree';
+import { registerAllMonacoThemes } from '@/lib/themeDefinitions';
 
 export const CodeEditor: React.FC = () => {
   const { 
@@ -24,6 +25,7 @@ export const CodeEditor: React.FC = () => {
     wordWrap,
     minimap,
     themePreset,
+    tabSize,
     autoFormat,
     setAiPrompt,
     setAIPanelVisible,
@@ -153,118 +155,7 @@ export const CodeEditor: React.FC = () => {
 
   const handleEditorWillMount = (monaco: any) => {
     monacoRef.current = monaco;
-    // Define Monokai Theme
-    monaco.editor.defineTheme('monokai', {
-      base: 'vs-dark',
-      inherit: true,
-      rules: [
-        { token: 'comment', foreground: '75715e' },
-        { token: 'keyword', foreground: 'f92672' },
-        { token: 'string', foreground: 'e6db74' },
-        { token: 'number', foreground: 'ae81ff' },
-      ],
-      colors: {
-        'editor.background': '#272822',
-        'editor.foreground': '#f8f8f2',
-        'editorCursor.foreground': '#f8f8f0',
-        'editor.lineHighlightBackground': '#3e3d32',
-        'editorLineNumber.foreground': '#90908a',
-        'editor.selectionBackground': '#49483e',
-      }
-    });
-
-    // Define Cobalt Theme
-    monaco.editor.defineTheme('cobalt', {
-      base: 'vs-dark',
-      inherit: true,
-      rules: [
-        { token: 'comment', foreground: '0088ff' },
-        { token: 'keyword', foreground: 'ff9d00' },
-        { token: 'string', foreground: '3ad900' },
-      ],
-      colors: {
-        'editor.background': '#002240',
-        'editor.foreground': '#ffffff',
-        'editorCursor.foreground': '#ffffff',
-        'editor.lineHighlightBackground': '#003366',
-        'editorLineNumber.foreground': '#0088ff',
-      }
-    });
-
-    // Define GitHub Light Theme
-    monaco.editor.defineTheme('github-light', {
-      base: 'vs',
-      inherit: true,
-      rules: [
-        { token: 'comment', foreground: '6a737d' },
-        { token: 'keyword', foreground: 'd73a49' },
-        { token: 'string', foreground: '032f62' },
-      ],
-      colors: {
-        'editor.background': '#ffffff',
-        'editor.foreground': '#24292e',
-        'editorCursor.foreground': '#24292e',
-        'editor.lineHighlightBackground': '#f6f8fa',
-        'editorLineNumber.foreground': '#1b1f234d',
-      }
-    });
-
-    // Define Dracula Theme
-    monaco.editor.defineTheme('dracula', {
-      base: 'vs-dark',
-      inherit: true,
-      rules: [
-        { token: 'comment', foreground: '6272a4' },
-        { token: 'keyword', foreground: 'ff79c6' },
-        { token: 'string', foreground: 'f1fa8c' },
-        { token: 'type', foreground: '8be9fd' },
-        { token: 'function', foreground: '50fa7b' },
-      ],
-      colors: {
-        'editor.background': '#282a36',
-        'editor.foreground': '#f8f8f2',
-        'editorCursor.foreground': '#f8f8f2',
-        'editor.lineHighlightBackground': '#44475a',
-        'editorLineNumber.foreground': '#6272a4',
-        'editor.selectionBackground': '#44475a',
-      }
-    });
-
-    // Define Solarized Dark
-    monaco.editor.defineTheme('solarized-dark', {
-      base: 'vs-dark',
-      inherit: true,
-      rules: [
-        { token: 'comment', foreground: '586e75' },
-        { token: 'keyword', foreground: '859900' },
-        { token: 'string', foreground: '2aa198' },
-      ],
-      colors: {
-        'editor.background': '#002b36',
-        'editor.foreground': '#839496',
-        'editorCursor.foreground': '#839496',
-        'editor.lineHighlightBackground': '#073642',
-        'editorLineNumber.foreground': '#586e75',
-      }
-    });
-
-    // Define Material Theme
-    monaco.editor.defineTheme('material', {
-      base: 'vs-dark',
-      inherit: true,
-      rules: [
-        { token: 'comment', foreground: '546e7a' },
-        { token: 'keyword', foreground: 'c792ea' },
-        { token: 'string', foreground: 'c3e88d' },
-      ],
-      colors: {
-        'editor.background': '#263238',
-        'editor.foreground': '#eeffff',
-        'editorCursor.foreground': '#ffcc00',
-        'editor.lineHighlightBackground': '#00000050',
-        'editorLineNumber.foreground': '#37474f',
-      }
-    });
+    registerAllMonacoThemes(monaco);
   };
 
   const getMonacoTheme = () => {
@@ -376,6 +267,7 @@ export const CodeEditor: React.FC = () => {
             scrollBeyondLastLine: false,
             automaticLayout: true,
             padding: { top: 12 },
+            tabSize: tabSize || 2,
             wordWrap: wordWrap,
             lineNumbers: lineNumbers,
             bracketPairColorization: { enabled: true },

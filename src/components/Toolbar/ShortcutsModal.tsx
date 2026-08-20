@@ -13,14 +13,16 @@ interface ShortcutsModalProps {
 }
 
 const SHORTCUTS = [
+  { key: 'Ctrl + Shift + P / ⌘ + Shift + P', action: 'Open Searchable Command Palette' },
+  { key: 'Shift + Alt + F', action: 'Format active document with Prettier' },
+  { key: 'Ctrl + Shift + T / ⌘ + Shift + T', action: 'Execute Unit Test Suite' },
   { key: 'Ctrl + Enter / ⌘ + Enter', action: 'Run JavaScript Code in active file' },
   { key: 'Ctrl + S / ⌘ + S', action: 'Save active file changes' },
   { key: 'Ctrl + ` / ⌘ + `', action: 'Toggle Console & Terminal drawer' },
   { key: 'Ctrl + B / ⌘ + B', action: 'Toggle File Explorer sidebar' },
-  { key: 'Shift + Alt + F', action: 'Format code with Prettier' },
   { key: 'Ctrl + E / ⌘ + E', action: 'Explain selected code with AI' },
-  { key: 'Ctrl + / / ⌘ + /', action: 'Toggle line comment' },
-  { key: 'Ctrl + F / ⌘ + F', action: 'Find in active file' },
+  { key: 'Ctrl + / / ⌘ + /', action: 'Toggle line comment in Monaco' },
+  { key: 'Ctrl + F / ⌘ + F', action: 'Find & Replace in active file' },
 ];
 
 export const ShortcutsModal: React.FC<ShortcutsModalProps> = ({ isOpen, onClose }) => {

@@ -1,5 +1,5 @@
 export type FileType = 'javascript' | 'html' | 'css' | 'json' | 'typescript';
-export type ViewTab = 'editor' | 'console' | 'terminal' | 'preview';
+export type ViewTab = 'editor' | 'console' | 'terminal' | 'preview' | 'tests';
 
 export interface File {
   id: string;
@@ -22,6 +22,55 @@ export interface LogEntry {
   timestamp: number;
 }
 
+export interface TestCaseResult {
+  id: string;
+  name: string;
+  suiteName: string;
+  status: 'passed' | 'failed' | 'skipped';
+  duration: number;
+  error?: {
+    message: string;
+    expected?: any;
+    received?: any;
+    stack?: string;
+  };
+}
+
+export interface TestSuiteResult {
+  fileId: string;
+  fileName: string;
+  suiteName: string;
+  status: 'passed' | 'failed' | 'running';
+  duration: number;
+  tests: TestCaseResult[];
+}
+
+export interface TestSummary {
+  totalSuites: number;
+  passedSuites: number;
+  failedSuites: number;
+  totalTests: number;
+  passedTests: number;
+  failedTests: number;
+  skippedTests: number;
+  duration: number;
+  timestamp: number;
+}
+
+export type ThemePreset = 
+  | 'vs-code' 
+  | 'github-dark' 
+  | 'dracula' 
+  | 'monokai' 
+  | 'nord' 
+  | 'tokyo-night' 
+  | 'one-dark-pro' 
+  | 'cobalt' 
+  | 'synthwave' 
+  | 'solarized-dark' 
+  | 'github-light' 
+  | 'solarized-light';
+
 export interface AppState {
   files: File[];
   folders: Folder[];
@@ -37,7 +86,8 @@ export interface AppState {
   lineNumbers: 'on' | 'off';
   wordWrap: 'on' | 'off';
   minimap: boolean;
-  themePreset: 'vs-code' | 'monokai' | 'cobalt' | 'github-light' | 'dracula' | 'solarized-dark' | 'material';
+  themePreset: ThemePreset;
+  tabSize: number;
   autoFormat: boolean;
   isSaving: boolean;
   isRunning: boolean;
@@ -49,6 +99,21 @@ export interface AppState {
   aiPrompt: string | null;
   terminalLogs: { type: 'input' | 'output'; content: string; timestamp: number; language?: string }[];
   
+  // Test Runner State
+  testResults: {
+    suites: TestSuiteResult[];
+    summary: TestSummary | null;
+  };
+  isTesting: boolean;
+
+  // Command Palette State
+  isCommandPaletteOpen: boolean;
+
+  // Modals & Triggers
+  isGitModalOpen: boolean;
+  isExportModalOpen: boolean;
+  isSettingsModalOpen: boolean;
+
   // Actions
   setFiles: (files: File[]) => void;
   setFolders: (folders: Folder[]) => void;
@@ -70,7 +135,8 @@ export interface AppState {
   setLineNumbers: (status: 'on' | 'off') => void;
   setWordWrap: (status: 'on' | 'off') => void;
   setMinimap: (status: boolean) => void;
-  setThemePreset: (preset: 'vs-code' | 'monokai' | 'cobalt' | 'github-light' | 'dracula' | 'solarized-dark' | 'material') => void;
+  setThemePreset: (preset: ThemePreset) => void;
+  setTabSize: (size: number) => void;
   setAutoFormat: (status: boolean) => void;
   setIsSaving: (status: boolean) => void;
   setIsRunning: (isRunning: boolean) => void;
@@ -80,7 +146,7 @@ export interface AppState {
   setConsoleVisible: (visible: boolean) => void;
   setAIPanelVisible: (visible: boolean) => void;
   setAiPrompt: (prompt: string | null) => void;
-  addFile: (name: string, language: FileType, parentId?: string | null) => boolean;
+  addFile: (name: string, language: FileType, parentId?: string | null, content?: string) => boolean;
   addFolder: (name: string, parentId?: string | null) => boolean;
   moveFile: (id: string, newParentId: string | null) => void;
   moveFolder: (id: string, newParentId: string | null) => void;
@@ -88,6 +154,15 @@ export interface AppState {
   deleteFolder: (id: string) => void;
   renameFile: (id: string, name: string) => void;
   renameFolder: (id: string, name: string) => void;
+  setCommandPaletteOpen: (open: boolean) => void;
+  setGitModalOpen: (open: boolean) => void;
+  setExportModalOpen: (open: boolean) => void;
+  setSettingsModalOpen: (open: boolean) => void;
+  formatActiveFile: () => Promise<boolean>;
+  runTests: (targetFileId?: string) => Promise<void>;
+  createSampleTestFile: () => void;
+  loadStarterTemplate: (templateId: string) => void;
+  loadClonedWorkspace: (files: File[], folders: Folder[]) => void;
   setSharedState: (state: Partial<AppState>) => void;
   resetToDefault: () => void;
 }
