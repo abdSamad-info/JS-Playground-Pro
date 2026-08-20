@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { AppState, File, Folder, TestSuiteResult, TestSummary, ThemePreset } from '../types/index';
+import { AppState, File, FileType, Folder, TestSuiteResult, TestSummary, ThemePreset } from '../types/index';
 import { formatCode } from '../lib/formatter';
 import { runUnitTests } from '../lib/testRunner';
 import { STARTER_TEMPLATES } from '../lib/gitService';
@@ -457,13 +457,37 @@ describe('Exception handling', () => {
       deleteFile: (id) =>
         set((state) => {
           const newFiles = state.files.filter((f) => f.id !== id);
+          const newSaved = { ...state.savedFileContents };
+          const newDirty = { ...state.dirtyFileIds };
+          delete newSaved[id];
+          delete newDirty[id];
+
+          // If no files remain, create a clean default file so the editor never breaks
+          if (newFiles.length === 0) {
+            const fallbackFile: File = {
+              id: 'file-' + Math.random().toString(36).substring(2, 9),
+              name: 'index.js',
+              language: 'javascript',
+              parentId: null,
+              content: '// JavaScript Playground\nconsole.log("Hello, world!");\n',
+            };
+            return {
+              files: [fallbackFile],
+              activeFileId: fallbackFile.id,
+              savedFileContents: { [fallbackFile.id]: fallbackFile.content },
+              dirtyFileIds: { [fallbackFile.id]: false },
+            };
+          }
+
           let newActiveId = state.activeFileId;
           if (state.activeFileId === id) {
-            newActiveId = newFiles.length > 0 ? newFiles[0].id : '';
+            newActiveId = newFiles[0].id;
           }
           return {
             files: newFiles,
             activeFileId: newActiveId,
+            savedFileContents: newSaved,
+            dirtyFileIds: newDirty,
           };
         }),
       deleteFolder: (id) =>
@@ -481,21 +505,57 @@ describe('Exception handling', () => {
           const newFolders = state.folders.filter(f => !folderIdsToDelete.includes(f.id));
           const newFiles = state.files.filter(f => !folderIdsToDelete.includes(f.parentId || ''));
 
+          const newSaved = { ...state.savedFileContents };
+          const newDirty = { ...state.dirtyFileIds };
+          state.files.forEach(f => {
+            if (folderIdsToDelete.includes(f.parentId || '')) {
+              delete newSaved[f.id];
+              delete newDirty[f.id];
+            }
+          });
+
+          if (newFiles.length === 0) {
+            const fallbackFile: File = {
+              id: 'file-' + Math.random().toString(36).substring(2, 9),
+              name: 'index.js',
+              language: 'javascript',
+              parentId: null,
+              content: '// JavaScript Playground\nconsole.log("Hello, world!");\n',
+            };
+            return {
+              folders: newFolders,
+              files: [fallbackFile],
+              activeFileId: fallbackFile.id,
+              savedFileContents: { [fallbackFile.id]: fallbackFile.content },
+              dirtyFileIds: { [fallbackFile.id]: false },
+            };
+          }
+
           let newActiveId = state.activeFileId;
-          if (state.files.find(f => f.id === state.activeFileId && folderIdsToDelete.includes(f.parentId || ''))) {
-            newActiveId = newFiles.length > 0 ? newFiles[0].id : '';
+          if (!newFiles.some(f => f.id === state.activeFileId)) {
+            newActiveId = newFiles[0].id;
           }
 
           return {
             folders: newFolders,
             files: newFiles,
             activeFileId: newActiveId,
+            savedFileContents: newSaved,
+            dirtyFileIds: newDirty,
           };
         }),
       renameFile: (id, name) =>
-        set((state) => ({
-          files: state.files.map(f => f.id === id ? { ...f, name } : f)
-        })),
+        set((state) => {
+          let detectedLang: FileType = 'javascript';
+          if (name.endsWith('.ts') || name.endsWith('.tsx')) detectedLang = 'typescript';
+          else if (name.endsWith('.html')) detectedLang = 'html';
+          else if (name.endsWith('.css')) detectedLang = 'css';
+          else if (name.endsWith('.json')) detectedLang = 'json';
+
+          return {
+            files: state.files.map(f => f.id === id ? { ...f, name, language: detectedLang } : f)
+          };
+        }),
       renameFolder: (id, name) =>
         set((state) => ({
           folders: state.folders.map(f => f.id === id ? { ...f, name } : f)

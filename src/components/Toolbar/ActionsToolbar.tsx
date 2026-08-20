@@ -41,6 +41,13 @@ import {
   TooltipContent, 
   TooltipTrigger 
 } from '@/components/shadcn-ui/tooltip';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter
+} from '@/components/shadcn-ui/dialog';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { generateSandboxContent } from '@/lib/sandbox';
@@ -85,6 +92,7 @@ export const ActionsToolbar: React.FC = () => {
   const [isSavingLocal, setIsSavingLocal] = useState(false);
   const [isFormatting, setIsFormatting] = useState(false);
   const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
+  const [isResetDialogOpen, setIsResetDialogOpen] = useState(false);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const activeFile = files.find(f => f.id === activeFileId);
@@ -171,9 +179,9 @@ export const ActionsToolbar: React.FC = () => {
 
   return (
     <>
-      <header className="h-11 md:h-12 bg-[#252526] border-b border-[#3e3e42] flex items-center justify-between px-2 sm:px-3.5 shrink-0 select-none z-30 w-full overflow-x-hidden">
+      <header className="h-11 md:h-12 bg-[#252526] border-b border-[#3e3e42] flex items-center justify-between px-1.5 sm:px-3 shrink-0 select-none z-30 w-full overflow-x-auto no-scrollbar gap-1 sm:gap-2">
         {/* Left Section: Sidebar Toggle & Branding */}
-        <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
+        <div className="flex items-center gap-1 sm:gap-2 shrink-0">
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
@@ -195,7 +203,7 @@ export const ActionsToolbar: React.FC = () => {
             <div className="w-5.5 h-5.5 sm:w-6 sm:h-6 bg-[#007acc] rounded flex items-center justify-center shadow-xs">
               <span className="text-white font-bold text-[10px] sm:text-[11px] tracking-tighter">JS</span>
             </div>
-            <span className="text-xs sm:text-[13px] font-semibold text-white tracking-tight hidden sm:inline-block">
+            <span className="text-xs sm:text-[13px] font-semibold text-white tracking-tight hidden lg:inline-block">
               Playground
             </span>
           </div>
@@ -203,7 +211,7 @@ export const ActionsToolbar: React.FC = () => {
           {/* Search / Command Palette trigger on larger screens */}
           <button
             onClick={() => setCommandPaletteOpen(true)}
-            className="hidden xl:flex items-center gap-2 h-7 px-2.5 bg-[#1e1e1e] hover:bg-[#2a2a2e] text-[#888888] hover:text-zinc-200 border border-[#3e3e42] rounded-md text-[11px] font-normal transition-colors"
+            className="hidden 2xl:flex items-center gap-2 h-7 px-2.5 bg-[#1e1e1e] hover:bg-[#2a2a2e] text-[#888888] hover:text-zinc-200 border border-[#3e3e42] rounded-md text-[11px] font-normal transition-colors"
           >
             <Search size={12} className="text-[#888888]" />
             <span>Search actions...</span>
@@ -213,24 +221,24 @@ export const ActionsToolbar: React.FC = () => {
           </button>
         </div>
 
-        {/* Center Section: Run Action & Compact View Switcher */}
-        <div className="flex items-center gap-1 sm:gap-2 min-w-0">
+        {/* Center Section: Run Action & View Switcher */}
+        <div className="flex items-center gap-1 sm:gap-1.5 min-w-0 shrink-0">
           {/* Green Run Button */}
           <Tooltip>
             <TooltipTrigger asChild>
               <Button 
                 onClick={handleRun} 
                 disabled={isRunning}
-                className="bg-emerald-600 hover:bg-emerald-500 text-white h-7.5 sm:h-8 px-2.5 sm:px-3.5 gap-1.5 rounded-md text-[11px] sm:text-xs font-semibold shadow-xs transition-all active:scale-95 flex items-center shrink-0 cursor-pointer"
+                className="bg-emerald-600 hover:bg-emerald-500 text-white h-7 sm:h-8 px-2 sm:px-3 gap-1 rounded-md text-[11px] sm:text-xs font-semibold shadow-xs transition-all active:scale-95 flex items-center shrink-0 cursor-pointer"
               >
-                <Play size={12} fill="currentColor" className="text-white shrink-0" />
-                <span className="hidden xs:inline">Run</span>
+                <Play size={11} fill="currentColor" className="text-white shrink-0" />
+                <span className="hidden sm:inline">Run</span>
               </Button>
             </TooltipTrigger>
             <TooltipContent side="bottom">Execute JavaScript (Ctrl + Enter)</TooltipContent>
           </Tooltip>
 
-          {/* Format Document Button (hidden on very narrow mobile to protect 3-dots, shown on sm:) */}
+          {/* Format Document Button */}
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
@@ -239,10 +247,10 @@ export const ActionsToolbar: React.FC = () => {
                 size="sm"
                 onClick={handleFormat}
                 disabled={isFormatting || !activeFile}
-                className="hidden sm:flex h-7.5 sm:h-8 px-2 bg-[#1e1e1e] hover:bg-[#333333] text-[#cccccc] hover:text-white border-[#3e3e42] rounded-md text-xs font-medium gap-1.5 transition-colors shrink-0"
+                className="hidden xl:flex h-7 sm:h-8 px-2 bg-[#1e1e1e] hover:bg-[#333333] text-[#cccccc] hover:text-white border-[#3e3e42] rounded-md text-xs font-medium gap-1.5 transition-colors shrink-0"
               >
                 <Sparkles size={12} className={cn("text-amber-400 shrink-0", isFormatting && "animate-spin")} />
-                <span className="hidden md:inline">Format</span>
+                <span>Format</span>
               </Button>
             </TooltipTrigger>
             <TooltipContent side="bottom">Format Document (Shift + Alt + F)</TooltipContent>
@@ -256,7 +264,7 @@ export const ActionsToolbar: React.FC = () => {
                 <button
                   onClick={() => setActiveView('editor')}
                   className={cn(
-                    "flex items-center gap-1 px-1.5 sm:px-2.5 h-6.5 sm:h-7 rounded text-[11px] font-medium transition-all",
+                    "flex items-center gap-1 px-1.5 sm:px-2.5 h-6 sm:h-7 rounded text-[11px] font-medium transition-all cursor-pointer",
                     activeView === 'editor' 
                       ? "bg-[#2d2d30] text-white shadow-xs font-semibold" 
                       : "text-zinc-400 hover:text-zinc-200"
@@ -275,7 +283,7 @@ export const ActionsToolbar: React.FC = () => {
                 <button
                   onClick={() => setActiveView('tests')}
                   className={cn(
-                    "flex items-center gap-1 px-1.5 sm:px-2.5 h-6.5 sm:h-7 rounded text-[11px] font-medium transition-all relative",
+                    "flex items-center gap-1 px-1.5 sm:px-2.5 h-6 sm:h-7 rounded text-[11px] font-medium transition-all relative cursor-pointer",
                     activeView === 'tests' 
                       ? "bg-[#2d2d30] text-white shadow-xs font-semibold" 
                       : "text-zinc-400 hover:text-zinc-200"
@@ -298,13 +306,13 @@ export const ActionsToolbar: React.FC = () => {
               <TooltipContent side="bottom">Unit Test Runner</TooltipContent>
             </Tooltip>
 
-            {/* Console Tab */}
+            {/* Console / Logs Tab */}
             <Tooltip>
               <TooltipTrigger asChild>
                 <button
                   onClick={() => setActiveView('console')}
                   className={cn(
-                    "flex items-center gap-1 px-1.5 sm:px-2.5 h-6.5 sm:h-7 rounded text-[11px] font-medium transition-all relative",
+                    "flex items-center gap-1 px-1.5 sm:px-2.5 h-6 sm:h-7 rounded text-[11px] font-medium transition-all relative cursor-pointer",
                     activeView === 'console' 
                       ? "bg-[#2d2d30] text-white shadow-xs font-semibold" 
                       : "text-zinc-400 hover:text-zinc-200"
@@ -328,7 +336,7 @@ export const ActionsToolbar: React.FC = () => {
                 <button
                   onClick={() => setActiveView('terminal')}
                   className={cn(
-                    "flex items-center gap-1 px-1.5 sm:px-2.5 h-6.5 sm:h-7 rounded text-[11px] font-medium transition-all",
+                    "flex items-center gap-1 px-1.5 sm:px-2.5 h-6 sm:h-7 rounded text-[11px] font-medium transition-all cursor-pointer",
                     activeView === 'terminal' 
                       ? "bg-[#2d2d30] text-white shadow-xs font-semibold" 
                       : "text-zinc-400 hover:text-zinc-200"
@@ -347,7 +355,7 @@ export const ActionsToolbar: React.FC = () => {
                 <button
                   onClick={() => setActiveView('preview')}
                   className={cn(
-                    "flex items-center gap-1 px-1.5 sm:px-2.5 h-6.5 sm:h-7 rounded text-[11px] font-medium transition-all",
+                    "flex items-center gap-1 px-1.5 sm:px-2.5 h-6 sm:h-7 rounded text-[11px] font-medium transition-all cursor-pointer",
                     activeView === 'preview' 
                       ? "bg-[#2d2d30] text-white shadow-xs font-semibold" 
                       : "text-zinc-400 hover:text-zinc-200"
@@ -363,7 +371,7 @@ export const ActionsToolbar: React.FC = () => {
         </div>
 
         {/* Right Section: Save Status, Git, Export & Three-Dots Menu */}
-        <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
+        <div className="flex items-center gap-1 shrink-0">
           {/* Quick Git Modal Trigger */}
           <Tooltip>
             <TooltipTrigger asChild>
@@ -371,7 +379,7 @@ export const ActionsToolbar: React.FC = () => {
                 variant="ghost"
                 size="icon"
                 onClick={() => setGitModalOpen(true)}
-                className="hidden lg:flex h-7.5 w-7.5 text-zinc-300 hover:text-white hover:bg-[#333333] rounded"
+                className="hidden xl:flex h-7.5 w-7.5 text-zinc-300 hover:text-white hover:bg-[#333333] rounded"
               >
                 <FolderGit2 size={15} className="text-[#58a6ff]" />
               </Button>
@@ -386,7 +394,7 @@ export const ActionsToolbar: React.FC = () => {
                 variant="ghost"
                 size="icon"
                 onClick={() => setExportModalOpen(true)}
-                className="hidden lg:flex h-7.5 w-7.5 text-zinc-300 hover:text-white hover:bg-[#333333] rounded"
+                className="hidden xl:flex h-7.5 w-7.5 text-zinc-300 hover:text-white hover:bg-[#333333] rounded"
               >
                 <FileArchive size={15} className="text-emerald-400" />
               </Button>
@@ -394,7 +402,7 @@ export const ActionsToolbar: React.FC = () => {
             <TooltipContent side="bottom">Export Project as ZIP / JSON</TooltipContent>
           </Tooltip>
 
-          {/* Save Button with Unsaved Indicator */}
+          {/* Save Button with Unsaved Indicator - ALWAYS VISIBLE */}
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
@@ -404,7 +412,7 @@ export const ActionsToolbar: React.FC = () => {
                 onClick={handleManualSave}
                 disabled={isSavingLocal}
                 className={cn(
-                  "h-7 sm:h-8 px-1.5 sm:px-2.5 text-xs rounded gap-1 transition-colors border",
+                  "h-7 sm:h-8 px-1.5 sm:px-2.5 text-xs rounded gap-1 transition-colors border cursor-pointer",
                   isCurrentFileDirty 
                     ? "bg-amber-500/10 text-amber-300 border-amber-500/40 hover:bg-amber-500/20 font-medium" 
                     : "border-transparent text-zinc-400 hover:text-white hover:bg-[#333333]"
@@ -415,13 +423,13 @@ export const ActionsToolbar: React.FC = () => {
                 ) : isCurrentFileDirty ? (
                   <div className="flex items-center gap-1">
                     <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping" />
-                    <Save size={12} className="text-amber-400" />
+                    <Save size={13} className="text-amber-400" />
                   </div>
                 ) : (
-                  <Save size={12} />
+                  <Save size={13} />
                 )}
-                <span className="hidden xl:inline text-[11px]">
-                  {isSavingLocal ? 'Saving...' : isCurrentFileDirty ? 'Save *' : 'Saved'}
+                <span className="hidden sm:inline text-[11px]">
+                  {isSavingLocal ? 'Saving...' : isCurrentFileDirty ? 'Save *' : 'Save'}
                 </span>
               </Button>
             </TooltipTrigger>
@@ -568,13 +576,8 @@ export const ActionsToolbar: React.FC = () => {
               </DropdownMenuItem>
 
               <DropdownMenuItem 
-                onClick={() => {
-                  if (confirm('Reset playground workspace to default files and settings?')) {
-                    resetToDefault();
-                    toast.success('Workspace reset to defaults');
-                  }
-                }}
-                className="text-xs cursor-pointer hover:bg-red-500/20 text-red-400 gap-2.5 py-2"
+                onClick={() => setIsResetDialogOpen(true)}
+                className="text-xs cursor-pointer hover:bg-rose-500/20 text-rose-400 gap-2.5 py-2"
               >
                 <Trash2 size={14} />
                 <span>Reset Playground</span>
@@ -591,6 +594,47 @@ export const ActionsToolbar: React.FC = () => {
           />
         </div>
       </header>
+
+      {/* Reset Confirmation Dialog */}
+      <Dialog open={isResetDialogOpen} onOpenChange={setIsResetDialogOpen}>
+        <DialogContent className="sm:max-w-[400px] bg-[#252526] border-[#454545] text-white">
+          <DialogHeader>
+            <DialogTitle className="text-sm font-semibold flex items-center gap-2 text-rose-400">
+              <Trash2 size={16} />
+              Reset Playground Workspace
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-3 text-xs text-[#cccccc] space-y-2">
+            <p>
+              Are you sure you want to reset the entire workspace?
+            </p>
+            <p className="text-amber-400 text-[11px] bg-amber-950/40 p-2 rounded border border-amber-800/50">
+              ⚠️ This will restore default starter files and clear all custom files and folders.
+            </p>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setIsResetDialogOpen(false)}
+              className="text-xs text-[#888888] hover:text-white"
+            >
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => {
+                resetToDefault();
+                setIsResetDialogOpen(false);
+                toast.success('Workspace reset to defaults');
+              }}
+              className="text-xs bg-rose-600 hover:bg-rose-500 text-white font-medium"
+            >
+              Reset Workspace
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Settings Modal */}
       <SettingsModal 

@@ -78,6 +78,7 @@ export const FileExplorer: React.FC = () => {
   const [isNewFileDialogOpen, setIsNewFileDialogOpen] = useState(false);
   const [isNewFolderDialogOpen, setIsNewFolderDialogOpen] = useState(false);
   const [isRenameDialogOpen, setIsRenameDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   
   const [newFileName, setNewFileName] = useState('');
   const [newFolderName, setNewFolderName] = useState('');
@@ -86,6 +87,8 @@ export const FileExplorer: React.FC = () => {
   
   const [itemToRename, setItemToRename] = useState<{ id: string; name: string; type: 'file' | 'folder' } | null>(null);
   const [renameValue, setRenameValue] = useState('');
+
+  const [itemToDelete, setItemToDelete] = useState<{ id: string; name: string; type: 'file' | 'folder' } | null>(null);
 
   // Inline creation states (VS Code like)
   const [inlineCreating, setInlineCreating] = useState<{ type: 'file' | 'folder'; parentId: string | null } | null>(null);
@@ -231,8 +234,8 @@ export const FileExplorer: React.FC = () => {
     setInlineName('');
   };
 
-  const openRenameDialog = (id: string, currentName: string, type: 'file' | 'folder', e: React.MouseEvent) => {
-    e.stopPropagation();
+  const openRenameDialog = (id: string, currentName: string, type: 'file' | 'folder', e?: React.MouseEvent | React.TouchEvent) => {
+    if (e) e.stopPropagation();
     setItemToRename({ id, name: currentName, type });
     setRenameValue(currentName);
     setIsRenameDialogOpen(true);
@@ -250,20 +253,23 @@ export const FileExplorer: React.FC = () => {
     setIsRenameDialogOpen(false);
   };
 
-  const handleDeleteFile = (id: string, name: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (confirm(`Delete file "${name}" permanently?`)) {
-      deleteFile(id);
-      toast.success(`Deleted ${name}`);
-    }
+  const openDeleteDialog = (id: string, name: string, type: 'file' | 'folder', e?: React.MouseEvent | React.TouchEvent) => {
+    if (e) e.stopPropagation();
+    setItemToDelete({ id, name, type });
+    setIsDeleteDialogOpen(true);
   };
 
-  const handleDeleteFolder = (id: string, name: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (confirm(`Delete folder "${name}" and all contents inside?`)) {
-      deleteFolder(id);
-      toast.success(`Deleted folder ${name}`);
+  const handleConfirmDelete = () => {
+    if (!itemToDelete) return;
+    if (itemToDelete.type === 'file') {
+      deleteFile(itemToDelete.id);
+      toast.success(`Deleted file "${itemToDelete.name}"`);
+    } else {
+      deleteFolder(itemToDelete.id);
+      toast.success(`Deleted folder "${itemToDelete.name}"`);
     }
+    setIsDeleteDialogOpen(false);
+    setItemToDelete(null);
   };
 
   // Filter files by search
@@ -292,7 +298,7 @@ export const FileExplorer: React.FC = () => {
                 }}
                 style={{ paddingLeft: `${Math.max(depth * 12 + 10, 10)}px` }}
                 className={cn(
-                  "group flex items-center justify-between h-7 pr-2 text-xs rounded-sm cursor-pointer transition-colors relative",
+                  "group flex items-center justify-between h-8 pr-1.5 text-xs rounded-sm cursor-pointer transition-colors relative",
                   isSelected ? "bg-[#37373d] text-white" : "text-[#bbbbbb] hover:bg-[#2a2d2e] hover:text-white"
                 )}
               >
@@ -306,8 +312,11 @@ export const FileExplorer: React.FC = () => {
                   <span className="truncate font-medium text-[12px]">{folder.name}</span>
                 </div>
 
-                {/* Folder Hover Actions */}
-                <div className="hidden group-hover:flex items-center gap-1 shrink-0 text-[#888888]">
+                {/* Folder Actions (Visible on Desktop Hover and on Mobile/Selected) */}
+                <div className={cn(
+                  "items-center gap-0.5 shrink-0 text-[#888888]",
+                  isSelected ? "flex" : "flex md:hidden md:group-hover:flex"
+                )}>
                   <button
                     title="New File Inside"
                     onClick={(e) => {
@@ -316,7 +325,7 @@ export const FileExplorer: React.FC = () => {
                       setInlineCreating({ type: 'file', parentId: folder.id });
                       setInlineName('');
                     }}
-                    className="p-1 hover:text-white hover:bg-[#454545] rounded"
+                    className="p-1 hover:text-white hover:bg-[#454545] rounded transition-colors"
                   >
                     <FilePlus2 size={12} />
                   </button>
@@ -329,7 +338,7 @@ export const FileExplorer: React.FC = () => {
                       setInlineCreating({ type: 'folder', parentId: folder.id });
                       setInlineName('');
                     }}
-                    className="p-1 hover:text-white hover:bg-[#454545] rounded"
+                    className="p-1 hover:text-white hover:bg-[#454545] rounded transition-colors"
                   >
                     <FolderPlus size={12} />
                   </button>
@@ -337,15 +346,15 @@ export const FileExplorer: React.FC = () => {
                   <button
                     title="Rename"
                     onClick={(e) => openRenameDialog(folder.id, folder.name, 'folder', e)}
-                    className="p-1 hover:text-white hover:bg-[#454545] rounded"
+                    className="p-1 hover:text-white hover:bg-[#454545] rounded transition-colors"
                   >
                     <Pencil size={11} />
                   </button>
 
                   <button
                     title="Delete"
-                    onClick={(e) => handleDeleteFolder(folder.id, folder.name, e)}
-                    className="p-1 hover:text-red-400 hover:bg-[#454545] rounded"
+                    onClick={(e) => openDeleteDialog(folder.id, folder.name, 'folder', e)}
+                    className="p-1 hover:text-rose-400 hover:bg-[#454545] rounded transition-colors text-[#aaaaaa]"
                   >
                     <Trash2 size={11} />
                   </button>
@@ -402,7 +411,7 @@ export const FileExplorer: React.FC = () => {
               }}
               style={{ paddingLeft: `${Math.max(depth * 12 + 22, 22)}px` }}
               className={cn(
-                "group flex items-center justify-between h-7 pr-2 text-xs rounded-sm cursor-pointer transition-colors relative select-none",
+                "group flex items-center justify-between h-8 pr-1.5 text-xs rounded-sm cursor-pointer transition-colors relative select-none",
                 isActive 
                   ? "bg-[#37373d] text-white font-medium shadow-sm border-l-2 border-[#007acc]" 
                   : "text-[#cccccc] hover:bg-[#2a2d2e] hover:text-white"
@@ -416,25 +425,26 @@ export const FileExplorer: React.FC = () => {
                 )}
               </div>
 
-              {/* File Hover Actions */}
-              <div className="hidden group-hover:flex items-center gap-1 shrink-0 text-[#888888]">
+              {/* File Actions (Visible on Desktop Hover and on Mobile/Selected) */}
+              <div className={cn(
+                "items-center gap-0.5 shrink-0 text-[#888888]",
+                isActive ? "flex" : "flex md:hidden md:group-hover:flex"
+              )}>
                 <button
                   title="Rename"
                   onClick={(e) => openRenameDialog(file.id, file.name, 'file', e)}
-                  className="p-1 hover:text-white hover:bg-[#454545] rounded"
+                  className="p-1 hover:text-white hover:bg-[#454545] rounded transition-colors"
                 >
                   <Pencil size={11} />
                 </button>
 
-                {files.length > 1 && (
-                  <button
-                    title="Delete"
-                    onClick={(e) => handleDeleteFile(file.id, file.name, e)}
-                    className="p-1 hover:text-red-400 hover:bg-[#454545] rounded"
-                  >
-                    <Trash2 size={11} />
-                  </button>
-                )}
+                <button
+                  title="Delete"
+                  onClick={(e) => openDeleteDialog(file.id, file.name, 'file', e)}
+                  className="p-1 hover:text-rose-400 hover:bg-[#454545] rounded transition-colors text-[#aaaaaa]"
+                >
+                  <Trash2 size={11} />
+                </button>
               </div>
             </div>
           );
@@ -615,13 +625,30 @@ export const FileExplorer: React.FC = () => {
                     key={file.id}
                     onClick={() => setActiveFileId(file.id)}
                     className={cn(
-                      "flex items-center justify-between px-3 h-7 text-xs rounded cursor-pointer",
+                      "group flex items-center justify-between px-3 h-8 text-xs rounded cursor-pointer transition-colors",
                       activeFileId === file.id ? "bg-[#007acc]/20 text-white font-medium" : "text-[#cccccc] hover:bg-[#2a2d2e]"
                     )}
                   >
-                    <div className="flex items-center gap-2 truncate">
+                    <div className="flex items-center gap-2 truncate min-w-0 flex-1">
                       {getFileIcon(file.language, file.name)}
                       <span className="truncate text-xs">{file.name}</span>
+                    </div>
+
+                    <div className="flex items-center gap-0.5 shrink-0 text-[#888888]">
+                      <button
+                        title="Rename"
+                        onClick={(e) => openRenameDialog(file.id, file.name, 'file', e)}
+                        className="p-1 hover:text-white hover:bg-[#454545] rounded transition-colors"
+                      >
+                        <Pencil size={11} />
+                      </button>
+                      <button
+                        title="Delete"
+                        onClick={(e) => openDeleteDialog(file.id, file.name, 'file', e)}
+                        className="p-1 hover:text-rose-400 hover:bg-[#454545] rounded transition-colors text-[#aaaaaa]"
+                      >
+                        <Trash2 size={11} />
+                      </button>
                     </div>
                   </div>
                 ))
@@ -785,7 +812,8 @@ export const FileExplorer: React.FC = () => {
       <Dialog open={isRenameDialogOpen} onOpenChange={setIsRenameDialogOpen}>
         <DialogContent className="sm:max-w-[400px] bg-[#252526] border-[#454545] text-white">
           <DialogHeader>
-            <DialogTitle className="text-sm font-semibold">
+            <DialogTitle className="text-sm font-semibold flex items-center gap-2">
+              <Pencil size={15} className="text-[#007acc]" />
               Rename {itemToRename?.type === 'file' ? 'File' : 'Folder'}
             </DialogTitle>
           </DialogHeader>
@@ -815,6 +843,48 @@ export const FileExplorer: React.FC = () => {
               className="text-xs bg-[#007acc] hover:bg-[#007acc]/90 text-white"
             >
               Rename
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <DialogContent className="sm:max-w-[400px] bg-[#252526] border-[#454545] text-white">
+          <DialogHeader>
+            <DialogTitle className="text-sm font-semibold flex items-center gap-2 text-rose-400">
+              <Trash2 size={16} />
+              Delete {itemToDelete?.type === 'file' ? 'File' : 'Folder'}
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="py-3 text-xs text-[#cccccc] space-y-2">
+            <p>
+              Are you sure you want to permanently delete{' '}
+              <span className="font-semibold text-white">"{itemToDelete?.name}"</span>?
+            </p>
+            {itemToDelete?.type === 'folder' && (
+              <p className="text-amber-400 text-[11px] bg-amber-950/40 p-2 rounded border border-amber-800/50">
+                ⚠️ Warning: All files and nested subfolders inside will also be permanently deleted.
+              </p>
+            )}
+          </div>
+
+          <DialogFooter className="gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setIsDeleteDialogOpen(false)}
+              className="text-xs text-[#888888] hover:text-white"
+            >
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleConfirmDelete}
+              className="text-xs bg-rose-600 hover:bg-rose-500 text-white font-medium shadow-xs"
+            >
+              Delete {itemToDelete?.type === 'file' ? 'File' : 'Folder'}
             </Button>
           </DialogFooter>
         </DialogContent>
